@@ -3,3 +3,4 @@ __pycache__/
 .env
 skillcorner_*/
 causal_scores_22.csv
+.streamlit/secrets.toml

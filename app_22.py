@@ -41,6 +41,63 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# ── authentication ────────────────────────────────────────────────────────────
+
+def _check_credentials(username: str, password: str) -> bool:
+    try:
+        ok_user = st.secrets["auth"]["username"]
+        ok_pass = st.secrets["auth"]["password"]
+        return username == ok_user and password == ok_pass
+    except Exception:
+        # secrets未設定の場合はローカル開発用としてスルー
+        return True
+
+
+def require_login() -> None:
+    """Show login form and block access until authenticated."""
+    if st.session_state.get("authenticated"):
+        return
+
+    st.markdown("""
+    <style>
+    .login-box {
+        max-width: 360px; margin: 80px auto; padding: 40px;
+        background: #13202f; border: 1px solid #1e3348;
+        border-radius: 14px; box-shadow: 0 4px 32px rgba(0,0,0,0.5);
+    }
+    .login-title {
+        color: #ffffff; font-size: 1.5rem; font-weight: 700;
+        text-align: center; margin-bottom: 8px;
+    }
+    .login-sub {
+        color: #7095b5; font-size: 0.85rem;
+        text-align: center; margin-bottom: 28px;
+    }
+    </style>
+    <div class="login-box">
+        <div class="login-title">⚽ Pitch Log</div>
+        <div class="login-sub">ログインが必要です</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    with st.form("login_form"):
+        username = st.text_input("ユーザーID", placeholder="ID を入力")
+        password = st.text_input("パスワード", type="password", placeholder="パスワードを入力")
+        submitted = st.form_submit_button("ログイン", use_container_width=True)
+
+    if submitted:
+        if _check_credentials(username, password):
+            st.session_state["authenticated"] = True
+            st.rerun()
+        else:
+            st.error("IDまたはパスワードが正しくありません")
+            st.stop()
+    else:
+        st.stop()
+
+
+require_login()
+
 # ── constants ─────────────────────────────────────────────────────────────────
 PITCH_W = 105.0
 PITCH_H = 68.0
