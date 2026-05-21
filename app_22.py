@@ -54,6 +54,10 @@ COLOR_BALL  = "#FFD700"   # Ball = yellow
 COLOR_BG    = "#0e1825"
 COLOR_PITCH = "#1a3d1a"
 
+# ── Zone evaluation constants (mirrors xt_pipeline_22.py) ─────────────────────
+ZONE_SAFE_MAX  = 0.33   # normalised X: safe zone upper bound
+ZONE_BUILD_MAX = 0.66   # normalised X: build zone upper / attacking third start
+
 # ── CSS ───────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
@@ -234,6 +238,138 @@ def _team_nums(df: pd.DataFrame, team: str) -> list[int]:
 
 def home_nums(df: pd.DataFrame) -> list[int]: return _team_nums(df, "Home")
 def away_nums(df: pd.DataFrame) -> list[int]: return _team_nums(df, "Away")
+
+
+# ── Zone helpers ──────────────────────────────────────────────────────────────
+
+def _dm(x1: float, y1: float, x2: float, y2: float) -> float:
+    """Euclidean distance in metres between two normalised-[0,1] pitch coordinates."""
+    return float(np.sqrt(((x1 - x2) * 105.0) ** 2 + ((y1 - y2) * 68.0) ** 2))
+
+
+def _eff_x(x_norm: float, team: str) -> float:
+    return (1.0 - x_norm) if team == "Away" else x_norm
+
+
+def _compute_lbp_inapp(
+    df: pd.DataFrame, fps: float, h_nums: list[int], a_nums: list[int]
+) -> pd.DataFrame:
+    """
+    Compute line-breaking pass columns on the fly if not already present.
+    Returns a new DataFrame; the original is never mutated.
+    Mirrors add_zone_and_lbp_columns() in xt_pipeline_22.py.
+    """
+    if "is_line_breaking_pass" in df.columns:
+        return df
+
+    _CTRL_M = 2.0
+    _TRAV_M = 8.0
+    _DEF_M  = 3.0
+    _LOOK   = 30
+
+    n       = len(df)
+    is_lbp  = np.zeros(n, dtype=int)
+    passers = [""] * n
+    recvs   = [""] * n
+    defs_ct = np.zeros(n, dtype=int)
+
+    def _holder(row, bx, by):
+        bst, bd = (None, None), np.inf
+        for pfx, nums in [("Home", h_nums), ("Away", a_nums)]:
+            for num in nums:
+                px = row.get(f"{pfx}_P{num}_X", np.nan)
+                py = row.get(f"{pfx}_P{num}_Y", np.nan)
+                if pd.isna(px) or pd.isna(py):
+                    continue
+                d = _dm(float(px), float(py), bx, by)
+                if d < bd:
+                    bd, bst = d, (pfx, num)
+        return bst if bd <= _CTRL_M else (None, None)
+
+    i = 0
+    while i < n:
+        row = df.iloc[i]
+        bx  = float(row.get("Ball_X", np.nan))
+        by  = float(row.get("Ball_Y", np.nan))
+        if np.isnan(bx) or np.isnan(by):
+            i += 1
+            continue
+
+        pt, pn = _holder(row, bx, by)
+        if pt is None:
+            i += 1
+            continue
+
+        px_n   = float(row.get(f"{pt}_P{pn}_X", np.nan))
+        eff_px = _eff_x(px_n, pt)
+        if not (ZONE_SAFE_MAX <= eff_px < ZONE_BUILD_MAX):
+            i += 1
+            continue
+
+        found = False
+        for k in range(1, min(_LOOK + 1, n - i)):
+            fr  = df.iloc[i + k]
+            fbx = float(fr.get("Ball_X", np.nan))
+            fby = float(fr.get("Ball_Y", np.nan))
+            if np.isnan(fbx) or np.isnan(fby):
+                continue
+            if _dm(bx, by, fbx, fby) < _TRAV_M:
+                continue
+
+            rt, rn = _holder(fr, fbx, fby)
+            if rt is None or rt != pt or rn == pn:
+                continue
+
+            rx_n   = float(fr.get(f"{rt}_P{rn}_X", np.nan))
+            eff_rx = _eff_x(rx_n, rt)
+            if eff_rx < ZONE_BUILD_MAX:
+                continue
+
+            dp  = "Away" if pt == "Home" else "Home"
+            dns = a_nums if pt == "Home" else h_nums
+            nb  = 0
+            for dn in dns:
+                dx = fr.get(f"{dp}_P{dn}_X", np.nan)
+                dy = fr.get(f"{dp}_P{dn}_Y", np.nan)
+                if not (pd.isna(dx) or pd.isna(dy)):
+                    if _dm(float(dx), float(dy), fbx, fby) <= _DEF_M:
+                        nb += 1
+
+            pid = f"{pt}_P{pn}"
+            rid = f"{rt}_P{rn}"
+            for j in range(i, i + k + 1):
+                is_lbp[j]  = 1
+                passers[j] = pid
+                recvs[j]   = rid
+                defs_ct[j] = nb
+
+            found = True
+            i += k + 1
+            break
+
+        if not found:
+            i += 1
+
+    out = df.copy()
+    out["is_line_breaking_pass"] = is_lbp
+    out["lbp_passer"]            = passers
+    out["lbp_receiver"]          = recvs
+    out["lbp_nearby_def_count"]  = defs_ct
+    return out
+
+
+def _zone_boundary_traces() -> list:
+    """Dashed white vertical lines at zone boundaries (X=0.33 and X=0.66 normalised)."""
+    traces = []
+    for x_norm in [ZONE_SAFE_MAX, ZONE_BUILD_MAX]:
+        x_m = x_norm * PITCH_W
+        traces.append(go.Scatter(
+            x=[x_m, x_m], y=[0.0, PITCH_H],
+            mode="lines",
+            line=dict(color="rgba(255,255,255,0.38)", width=1.5, dash="dash"),
+            showlegend=False, hoverinfo="skip",
+        ))
+    return traces
 
 
 # ── pitch lines (static traces) ───────────────────────────────────────────────
@@ -547,6 +683,313 @@ def build_animated_fig(
     return fig
 
 
+# ── Zone-mode animated figure ─────────────────────────────────────────────────
+
+@st.cache_data(show_spinner="ゾーン別アニメーション生成中… (初回のみ数秒かかります)")
+def build_zone_animated_fig(
+    xt_path: str,
+    scene_path: str,
+    show_xt: bool,
+    trail_frames: int,
+    fps: float = 25.0,
+) -> go.Figure:
+    """
+    Zone-mode variant of build_animated_fig.
+    Adds:
+      - Zone boundary lines (static: dashed white at x=34.65m and x=69.3m)
+      - 3 extra animated traces per frame (LBP arrow + passer glow + receiver glow)
+    Original 6 animated traces are identical to the normal mode.
+    build_animated_fig is NOT touched.
+    """
+    xt_map   = load_xt_map(xt_path)
+    df       = load_scene(scene_path)
+    h_nums   = home_nums(df)
+    a_nums   = away_nums(df)
+    n_frames = len(df)
+
+    # Ensure LBP columns exist
+    df = _compute_lbp_inapp(df, fps, h_nums, a_nums)
+
+    lbp_flags   = df["is_line_breaking_pass"].values
+    lbp_passers = df["lbp_passer"].values
+    lbp_recvs   = df["lbp_receiver"].values
+
+    # ── static traces ─────────────────────────────────────────────────────────
+    static: list = []
+
+    if show_xt:
+        xc   = np.arange(X_BINS) + 0.5
+        yc   = np.arange(Y_BINS) + 0.5
+        zmax = float(np.percentile(xt_map[xt_map > 0], 99)) if xt_map.max() > 0 else 1.0
+        static.append(go.Heatmap(
+            z=xt_map.tolist(), x=xc.tolist(), y=yc.tolist(),
+            colorscale=[
+                [0.00, "rgba(0,40,0,0)"],
+                [0.25, "rgba(50,205,50,0.18)"],
+                [0.50, "rgba(255,215,0,0.35)"],
+                [0.75, "rgba(255,100,0,0.55)"],
+                [1.00, "rgba(200,0,30,0.80)"],
+            ],
+            zmin=0, zmax=zmax,
+            showscale=True,
+            colorbar=dict(
+                title=dict(text="xT", font=dict(color="white", size=11)),
+                thickness=10, len=0.55,
+                tickfont=dict(color="white", size=9),
+            ),
+            hoverinfo="skip",
+        ))
+
+    for tr in _pitch_traces():
+        static.append(tr)
+
+    # Zone boundary dashed lines
+    for tr in _zone_boundary_traces():
+        static.append(tr)
+
+    n_static     = len(static)
+    n_anim       = 9   # 6 original + 3 LBP overlays (arrow, passer glow, receiver glow)
+    anim_indices = list(range(n_static, n_static + n_anim))
+
+    def _player_pos_m(row, player_id: str):
+        """Return (x_metres, y_metres) for a player id like 'Home_P3', or (None, None)."""
+        if not player_id:
+            return None, None
+        xv = row.get(f"{player_id}_X", np.nan)
+        yv = row.get(f"{player_id}_Y", np.nan)
+        if pd.isna(xv) or pd.isna(yv):
+            return None, None
+        return float(xv) * PITCH_W, float(yv) * PITCH_H
+
+    def make_zone_frame(idx: int) -> list:
+        row = df.iloc[idx]
+        t0  = max(0, idx - trail_frames)
+        tdf = df.iloc[t0 : idx + 1]
+        out = []
+
+        # ① ball trail
+        out.append(go.Scatter(
+            x=(tdf["Ball_X"].values * PITCH_W).tolist(),
+            y=(tdf["Ball_Y"].values * PITCH_H).tolist(),
+            mode="lines",
+            line=dict(color="rgba(255,215,0,0.35)", width=1.5, dash="dot"),
+            showlegend=False, hoverinfo="skip",
+        ))
+
+        # ② home trails
+        hx_t, hy_t = [], []
+        for n in h_nums:
+            hx_t.extend((tdf[f"Home_P{n}_X"].values * PITCH_W).tolist() + [None])
+            hy_t.extend((tdf[f"Home_P{n}_Y"].values * PITCH_H).tolist() + [None])
+        out.append(go.Scatter(x=hx_t, y=hy_t, mode="lines",
+                              line=dict(color="rgba(30,144,255,0.22)", width=1),
+                              showlegend=False, hoverinfo="skip"))
+
+        # ③ away trails
+        ax_t, ay_t = [], []
+        for n in a_nums:
+            ax_t.extend((tdf[f"Away_P{n}_X"].values * PITCH_W).tolist() + [None])
+            ay_t.extend((tdf[f"Away_P{n}_Y"].values * PITCH_H).tolist() + [None])
+        out.append(go.Scatter(x=ax_t, y=ay_t, mode="lines",
+                              line=dict(color="rgba(255,68,68,0.22)", width=1),
+                              showlegend=False, hoverinfo="skip"))
+
+        # ④ home player dots (blue)
+        hpx = [float(row.get(f"Home_P{n}_X", np.nan)) * PITCH_W for n in h_nums]
+        hpy = [float(row.get(f"Home_P{n}_Y", np.nan)) * PITCH_H for n in h_nums]
+        h_cd = [
+            [n, int(row.get(f"Home_P{n}_GridID") or 0), float(row.get(f"Home_P{n}_xT") or 0.0)]
+            for n in h_nums
+        ]
+        out.append(go.Scatter(
+            x=hpx, y=hpy,
+            mode="markers+text",
+            marker=dict(size=22, color=COLOR_HOME, line=dict(color="white", width=1.8)),
+            text=[str(n) for n in h_nums],
+            textfont=dict(color="white", size=10, family="Arial Black"),
+            textposition="middle center",
+            customdata=h_cd,
+            hovertemplate=(
+                "<b>Home P%{customdata[0]}</b><br>"
+                "GridID : %{customdata[1]}<br>"
+                "xT     : %{customdata[2]:.4f}"
+                "<extra></extra>"
+            ),
+            showlegend=False,
+        ))
+
+        # ⑤ away player dots (red)
+        apx = [float(row.get(f"Away_P{n}_X", np.nan)) * PITCH_W for n in a_nums]
+        apy = [float(row.get(f"Away_P{n}_Y", np.nan)) * PITCH_H for n in a_nums]
+        a_cd = [
+            [n, int(row.get(f"Away_P{n}_GridID") or 0), float(row.get(f"Away_P{n}_xT") or 0.0)]
+            for n in a_nums
+        ]
+        out.append(go.Scatter(
+            x=apx, y=apy,
+            mode="markers+text",
+            marker=dict(size=22, color=COLOR_AWAY, line=dict(color="white", width=1.8)),
+            text=[str(n) for n in a_nums],
+            textfont=dict(color="white", size=10, family="Arial Black"),
+            textposition="middle center",
+            customdata=a_cd,
+            hovertemplate=(
+                "<b>Away P%{customdata[0]}</b><br>"
+                "GridID : %{customdata[1]}<br>"
+                "xT     : %{customdata[2]:.4f}"
+                "<extra></extra>"
+            ),
+            showlegend=False,
+        ))
+
+        # ⑥ ball dot (yellow)
+        bx  = row.get("Ball_X",    np.nan)
+        by  = row.get("Ball_Y",    np.nan)
+        bxt = float(row.get("Ball_xT",   0) or 0)
+        bgd = int(row.get("Ball_GridID", 0) or 0)
+        out.append(go.Scatter(
+            x=[float(bx) * PITCH_W] if pd.notna(bx) else [None],
+            y=[float(by) * PITCH_H] if pd.notna(by) else [None],
+            mode="markers",
+            marker=dict(size=14, color=COLOR_BALL, line=dict(color="#888", width=1.5)),
+            customdata=[[bxt, bgd]],
+            hovertemplate=(
+                "<b>Ball</b><br>"
+                "GridID : %{customdata[1]}<br>"
+                "xT     : %{customdata[0]:.4f}"
+                "<extra></extra>"
+            ),
+            showlegend=False,
+        ))
+
+        # ⑦⑧⑨ LBP overlays (empty when no line-breaking pass)
+        is_lbp_f = bool(lbp_flags[idx])
+        if is_lbp_f:
+            p_id = lbp_passers[idx]
+            r_id = lbp_recvs[idx]
+            px_m, py_m = _player_pos_m(row, p_id)
+            rx_m, ry_m = _player_pos_m(row, r_id)
+        else:
+            px_m = py_m = rx_m = ry_m = None
+
+        # ⑦ Green arrow: passer → receiver
+        out.append(go.Scatter(
+            x=[px_m, rx_m] if (px_m is not None and rx_m is not None) else [],
+            y=[py_m, ry_m] if (py_m is not None and ry_m is not None) else [],
+            mode="lines",
+            line=dict(color="rgba(0,255,128,0.90)", width=5),
+            showlegend=False, hoverinfo="skip",
+        ))
+
+        # ⑧ Passer glow (large semi-transparent green ring)
+        out.append(go.Scatter(
+            x=[px_m] if px_m is not None else [],
+            y=[py_m] if py_m is not None else [],
+            mode="markers",
+            marker=dict(
+                size=46, color="rgba(0,255,128,0.18)",
+                line=dict(color="rgba(0,255,128,0.90)", width=3),
+            ),
+            showlegend=False, hoverinfo="skip",
+        ))
+
+        # ⑨ Receiver glow
+        out.append(go.Scatter(
+            x=[rx_m] if rx_m is not None else [],
+            y=[ry_m] if ry_m is not None else [],
+            mode="markers",
+            marker=dict(
+                size=46, color="rgba(0,255,128,0.18)",
+                line=dict(color="rgba(0,255,128,0.90)", width=3),
+            ),
+            showlegend=False, hoverinfo="skip",
+        ))
+
+        return out
+
+    # ── pre-compute all frames ────────────────────────────────────────────────
+    frames = [
+        go.Frame(data=make_zone_frame(i), name=str(i), traces=anim_indices)
+        for i in range(n_frames)
+    ]
+
+    step_every   = max(1, n_frames // 150)
+    slider_steps = [
+        {
+            "args": [[str(i)], {
+                "frame": {"duration": 0, "redraw": True},
+                "mode": "immediate", "transition": {"duration": 0},
+            }],
+            "label": str(int(df.iloc[i]["Frame"])),
+            "method": "animate",
+        }
+        for i in range(0, n_frames, step_every)
+    ]
+
+    fig = go.Figure(data=static + make_zone_frame(0), frames=frames)
+
+    btn_common = {"fromcurrent": True, "transition": {"duration": 0}}
+    fig.update_layout(
+        plot_bgcolor=COLOR_PITCH,
+        paper_bgcolor=COLOR_BG,
+        xaxis=dict(range=[-4, PITCH_W + 4], showgrid=False, zeroline=False,
+                   color="white", title="", fixedrange=True),
+        yaxis=dict(range=[-4, PITCH_H + 4], showgrid=False, zeroline=False,
+                   scaleanchor="x", scaleratio=1,
+                   color="white", title="", fixedrange=True),
+        margin=dict(l=5, r=50, t=10, b=100),
+        height=590,
+        dragmode=False,
+        showlegend=False,
+        updatemenus=[{
+            "type": "buttons",
+            "showactive": True,
+            "bgcolor": "#1e2a1e",
+            "bordercolor": "rgba(255,255,255,0.20)",
+            "font": {"color": "white", "size": 13},
+            "x": 0.0, "y": -0.13,
+            "xanchor": "left", "yanchor": "top",
+            "direction": "left",
+            "buttons": [
+                {"label": "▶ ×1", "method": "animate",
+                 "args": [None, {"frame": {"duration": int(1000 / fps), "redraw": True},
+                                 **btn_common}]},
+                {"label": "⏸", "method": "animate",
+                 "args": [[None], {"frame": {"duration": 0, "redraw": False},
+                                   "mode": "immediate", "transition": {"duration": 0}}]},
+                {"label": "×0.5", "method": "animate",
+                 "args": [None, {"frame": {"duration": int(2000 / fps), "redraw": True},
+                                 **btn_common}]},
+                {"label": "×2", "method": "animate",
+                 "args": [None, {"frame": {"duration": int(500 / fps), "redraw": True},
+                                 **btn_common}]},
+                {"label": "×4", "method": "animate",
+                 "args": [None, {"frame": {"duration": int(250 / fps), "redraw": True},
+                                 **btn_common}]},
+                {"label": "⏮", "method": "animate",
+                 "args": [["0"], {"frame": {"duration": 0, "redraw": True},
+                                  "mode": "immediate", "transition": {"duration": 0}}]},
+            ],
+        }],
+        sliders=[{
+            "active": 0,
+            "currentvalue": {
+                "prefix": "Frame: ",
+                "font": {"color": "white", "size": 11},
+                "visible": True, "xanchor": "center",
+            },
+            "bgcolor": "#1e2a1e",
+            "bordercolor": "rgba(255,255,255,0.20)",
+            "font": {"color": "white", "size": 9},
+            "tickcolor": "rgba(255,255,255,0.35)",
+            "pad": {"t": 60, "b": 5},
+            "len": 1.0, "x": 0, "y": 0,
+            "steps": slider_steps,
+        }],
+    )
+    return fig
+
+
 # ── xT timeline ───────────────────────────────────────────────────────────────
 
 def build_timeline_fig(
@@ -724,6 +1167,37 @@ def render_contribution_panel(
                                    f"rank {i+1}" if s is not None else None)
 
 
+# ── LBP alert panel (zone mode only) ─────────────────────────────────────────
+
+def render_lbp_alerts(df: pd.DataFrame) -> None:
+    """Render line-breaking pass detection results for zone mode."""
+    if "is_line_breaking_pass" not in df.columns or df["is_line_breaking_pass"].sum() == 0:
+        st.info("このシーンにラインブレイクパスは検出されませんでした。")
+        return
+
+    lbp_df = df[df["is_line_breaking_pass"] == 1]
+
+    # Group consecutive flagged frames into distinct events (gap > 5 = new event)
+    events, prev_f = [], -999
+    for _, row in lbp_df.iterrows():
+        f = int(row["Frame"])
+        if f > prev_f + 5:
+            events.append(row)
+        prev_f = f
+
+    for ev in events:
+        t      = float(ev.get("Time", 0))
+        passer = str(ev.get("lbp_passer", ""))
+        recv   = str(ev.get("lbp_receiver", ""))
+        defs   = int(ev.get("lbp_nearby_def_count", 0))
+        st.warning(
+            f"**【Zone 2→3】アタッキングサードへの縦パスを検知**  \n"
+            f"出し手: `{passer}` → 受け手: `{recv}`  \n"
+            f"周囲 3m 以内の相手DF: **{defs}名** | 発生時刻: **{t:.2f}s**  \n"
+            f"中盤の配給価値が上昇中 — GSA 因果スコアに反映されます"
+        )
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Main
 # ══════════════════════════════════════════════════════════════════════════════
@@ -734,6 +1208,19 @@ def main() -> None:
     with st.sidebar:
         st.markdown("## ⚽ Pitch Log")
         st.markdown("**Phase 4 Extended: 22-Player Visualization**")
+        st.divider()
+
+        # ── 解析モード ────────────────────────────────────────────────────
+        view_mode = st.radio(
+            "解析モード",
+            ["通常モード（全体xT一律評価）", "ゾーン別評価モード（縦パス特化）"],
+            index=0,
+            help=(
+                "ゾーン別：ピッチをセーフ/ビルド/アタッキングサードに分割し、\n"
+                "ラインブレイクパス（縦パス）を自動検出して強調表示します。"
+            ),
+        )
+        zone_mode = view_mode.startswith("ゾーン")
         st.divider()
 
         # ── セットアップ手順 ───────────────────────────────────────────────
@@ -919,13 +1406,27 @@ streamlit run app_22.py
     col_l, col_r = st.columns([11, 9], gap="medium")
 
     with col_l:
-        st.markdown("#### ピッチビュー  🔵 Home  🔴 Away  🟡 Ball")
-        st.caption("▶/⏸/×0.5/×2/×4/⏮ で操作 | スライダーでコマ送り | ホバーで詳細表示")
-        fig_pitch = build_animated_fig(xt_path, scene_path, show_xt, trail_frames, fps)
+        if zone_mode:
+            st.markdown("#### ゾーン別ピッチビュー  🟢 LBP検知  🔵 Home  🔴 Away")
+            st.caption(
+                "Zone1: セーフ (X<33%) | Zone2: ビルド (33-66%) | "
+                "Zone3: アタッキングサード (X>66%) | 緑矢印: ラインブレイクパス"
+            )
+            fig_pitch = build_zone_animated_fig(xt_path, scene_path, show_xt, trail_frames, fps)
+        else:
+            st.markdown("#### ピッチビュー  🔵 Home  🔴 Away  🟡 Ball")
+            st.caption("▶/⏸/×0.5/×2/×4/⏮ で操作 | スライダーでコマ送り | ホバーで詳細表示")
+            fig_pitch = build_animated_fig(xt_path, scene_path, show_xt, trail_frames, fps)
         st.plotly_chart(fig_pitch, use_container_width=True,
                         config={"displayModeBar": False})
 
     with col_r:
+        if zone_mode:
+            st.markdown("#### ラインブレイクパス検知アラート")
+            lbp_df = _compute_lbp_inapp(df, fps, h_nums, a_nums)
+            render_lbp_alerts(lbp_df)
+            st.divider()
+
         st.markdown("#### xT タイムライン（30秒全体）")
         fig_line = build_timeline_fig(df, sel_home, sel_away, h_nums, a_nums)
         st.plotly_chart(fig_line, use_container_width=True,
