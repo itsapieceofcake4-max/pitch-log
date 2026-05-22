@@ -446,9 +446,12 @@ def build_animated_fig(
     show_xt: bool,
     trail_frames: int,
     fps: float = 25.0,
+    show_home: bool = True,
+    show_away: bool = True,
+    xt_side: str = "Home",
 ) -> go.Figure:
     """
-    Pre-compute 750 Plotly frames so playback runs entirely in the browser.
+    Pre-compute Plotly frames so playback runs entirely in the browser.
 
     Animated trace layout per frame (6 traces):
         0  ball trail
@@ -456,13 +459,17 @@ def build_animated_fig(
         2  away trails  (all 11 combined with None separators)
         3  home player dots  (markers+text, blue, with hover customdata)
         4  away player dots  (markers+text, red,  with hover customdata)
-        5  ball dot          (marker, yellow, with hover)
+        5  ball dot          (marker, semi-transparent yellow, with hover)
+
+    xt_side: "Home" | "Away" | "両方"
     """
     xt_map   = load_xt_map(xt_path)
     df       = load_scene(scene_path)
     h_nums   = home_nums(df)
     a_nums   = away_nums(df)
     n_frames = len(df)
+
+    xt_map_away = xt_map[:, ::-1]   # mirror for Away team
 
     # ── static traces ─────────────────────────────────────────────────────────
     static: list = []
@@ -471,24 +478,50 @@ def build_animated_fig(
         xc   = np.arange(X_BINS) + 0.5
         yc   = np.arange(Y_BINS) + 0.5
         zmax = float(np.percentile(xt_map[xt_map > 0], 99)) if xt_map.max() > 0 else 1.0
-        static.append(go.Heatmap(
-            z=xt_map.tolist(), x=xc.tolist(), y=yc.tolist(),
-            colorscale=[
-                [0.00, "rgba(0,40,0,0)"],
-                [0.25, "rgba(50,205,50,0.18)"],
-                [0.50, "rgba(255,215,0,0.35)"],
-                [0.75, "rgba(255,100,0,0.55)"],
-                [1.00, "rgba(200,0,30,0.80)"],
-            ],
-            zmin=0, zmax=zmax,
-            showscale=True,
-            colorbar=dict(
-                title=dict(text="xT", font=dict(color="white", size=11)),
-                thickness=10, len=0.55,
-                tickfont=dict(color="white", size=9),
-            ),
-            hoverinfo="skip",
-        ))
+
+        # Home xT heatmap (warm colorscale)
+        if xt_side in ("Home", "両方"):
+            h_opacity = 0.65 if xt_side == "両方" else 1.0
+            static.append(go.Heatmap(
+                z=xt_map.tolist(), x=xc.tolist(), y=yc.tolist(),
+                colorscale=[
+                    [0.00, "rgba(0,40,0,0)"],
+                    [0.25, f"rgba(50,205,50,{0.18*h_opacity:.2f})"],
+                    [0.50, f"rgba(255,215,0,{0.35*h_opacity:.2f})"],
+                    [0.75, f"rgba(255,100,0,{0.55*h_opacity:.2f})"],
+                    [1.00, f"rgba(200,0,30,{0.80*h_opacity:.2f})"],
+                ],
+                zmin=0, zmax=zmax,
+                showscale=(xt_side != "両方"),
+                colorbar=dict(
+                    title=dict(text="xT (Home)", font=dict(color="white", size=11)),
+                    thickness=10, len=0.55,
+                    tickfont=dict(color="white", size=9),
+                ),
+                hoverinfo="skip",
+            ))
+
+        # Away xT heatmap (cool blue colorscale, mirrored)
+        if xt_side in ("Away", "両方"):
+            a_opacity = 0.65 if xt_side == "両方" else 1.0
+            static.append(go.Heatmap(
+                z=xt_map_away.tolist(), x=xc.tolist(), y=yc.tolist(),
+                colorscale=[
+                    [0.00, "rgba(0,0,60,0)"],
+                    [0.25, f"rgba(0,100,255,{0.18*a_opacity:.2f})"],
+                    [0.50, f"rgba(0,200,255,{0.35*a_opacity:.2f})"],
+                    [0.75, f"rgba(100,0,255,{0.55*a_opacity:.2f})"],
+                    [1.00, f"rgba(200,0,200,{0.80*a_opacity:.2f})"],
+                ],
+                zmin=0, zmax=zmax,
+                showscale=True,
+                colorbar=dict(
+                    title=dict(text="xT (Away)", font=dict(color="white", size=11)),
+                    thickness=10, len=0.55, x=1.08,
+                    tickfont=dict(color="white", size=9),
+                ),
+                hoverinfo="skip",
+            ))
 
     for tr in _pitch_traces():
         static.append(tr)
@@ -535,61 +568,67 @@ def build_animated_fig(
             showlegend=False, hoverinfo="skip",
         ))
 
-        # ④ home player dots (blue)
-        hpx = [float(row.get(f"Home_P{n}_X", np.nan)) * PITCH_W for n in h_nums]
-        hpy = [float(row.get(f"Home_P{n}_Y", np.nan)) * PITCH_H for n in h_nums]
-        h_cd = [
-            [n,
-             int(row.get(f"Home_P{n}_GridID") or 0),
-             float(row.get(f"Home_P{n}_xT") or 0.0)]
-            for n in h_nums
-        ]
-        out.append(go.Scatter(
-            x=hpx, y=hpy,
-            mode="markers+text",
-            marker=dict(size=22, color=COLOR_HOME,
-                        line=dict(color="white", width=1.8)),
-            text=[str(n) for n in h_nums],
-            textfont=dict(color="white", size=10, family="Arial Black"),
-            textposition="middle center",
-            customdata=h_cd,
-            hovertemplate=(
-                "<b>Home P%{customdata[0]}</b><br>"
-                "GridID : %{customdata[1]}<br>"
-                "xT     : %{customdata[2]:.4f}"
-                "<extra></extra>"
-            ),
-            showlegend=False,
-        ))
+        # ④ home player dots (blue) — hidden when show_home=False
+        if show_home:
+            hpx = [float(row.get(f"Home_P{n}_X", np.nan)) * PITCH_W for n in h_nums]
+            hpy = [float(row.get(f"Home_P{n}_Y", np.nan)) * PITCH_H for n in h_nums]
+            h_cd = [
+                [n,
+                 int(row.get(f"Home_P{n}_GridID") or 0),
+                 float(row.get(f"Home_P{n}_xT") or 0.0)]
+                for n in h_nums
+            ]
+            out.append(go.Scatter(
+                x=hpx, y=hpy,
+                mode="markers+text",
+                marker=dict(size=22, color=COLOR_HOME,
+                            line=dict(color="white", width=1.8)),
+                text=[str(n) for n in h_nums],
+                textfont=dict(color="white", size=10, family="Arial Black"),
+                textposition="middle center",
+                customdata=h_cd,
+                hovertemplate=(
+                    "<b>Home P%{customdata[0]}</b><br>"
+                    "GridID : %{customdata[1]}<br>"
+                    "xT     : %{customdata[2]:.4f}"
+                    "<extra></extra>"
+                ),
+                showlegend=False,
+            ))
+        else:
+            out.append(go.Scatter(x=[], y=[], mode="markers", showlegend=False, hoverinfo="skip"))
 
-        # ⑤ away player dots (red)
-        apx = [float(row.get(f"Away_P{n}_X", np.nan)) * PITCH_W for n in a_nums]
-        apy = [float(row.get(f"Away_P{n}_Y", np.nan)) * PITCH_H for n in a_nums]
-        a_cd = [
-            [n,
-             int(row.get(f"Away_P{n}_GridID") or 0),
-             float(row.get(f"Away_P{n}_xT") or 0.0)]
-            for n in a_nums
-        ]
-        out.append(go.Scatter(
-            x=apx, y=apy,
-            mode="markers+text",
-            marker=dict(size=22, color=COLOR_AWAY,
-                        line=dict(color="white", width=1.8)),
-            text=[str(n) for n in a_nums],
-            textfont=dict(color="white", size=10, family="Arial Black"),
-            textposition="middle center",
-            customdata=a_cd,
-            hovertemplate=(
-                "<b>Away P%{customdata[0]}</b><br>"
-                "GridID : %{customdata[1]}<br>"
-                "xT     : %{customdata[2]:.4f}"
-                "<extra></extra>"
-            ),
-            showlegend=False,
-        ))
+        # ⑤ away player dots (red) — hidden when show_away=False
+        if show_away:
+            apx = [float(row.get(f"Away_P{n}_X", np.nan)) * PITCH_W for n in a_nums]
+            apy = [float(row.get(f"Away_P{n}_Y", np.nan)) * PITCH_H for n in a_nums]
+            a_cd = [
+                [n,
+                 int(row.get(f"Away_P{n}_GridID") or 0),
+                 float(row.get(f"Away_P{n}_xT") or 0.0)]
+                for n in a_nums
+            ]
+            out.append(go.Scatter(
+                x=apx, y=apy,
+                mode="markers+text",
+                marker=dict(size=22, color=COLOR_AWAY,
+                            line=dict(color="white", width=1.8)),
+                text=[str(n) for n in a_nums],
+                textfont=dict(color="white", size=10, family="Arial Black"),
+                textposition="middle center",
+                customdata=a_cd,
+                hovertemplate=(
+                    "<b>Away P%{customdata[0]}</b><br>"
+                    "GridID : %{customdata[1]}<br>"
+                    "xT     : %{customdata[2]:.4f}"
+                    "<extra></extra>"
+                ),
+                showlegend=False,
+            ))
+        else:
+            out.append(go.Scatter(x=[], y=[], mode="markers", showlegend=False, hoverinfo="skip"))
 
-        # ⑥ ball dot (yellow)
+        # ⑥ ball dot (semi-transparent yellow)
         bx  = row.get("Ball_X",      np.nan)
         by  = row.get("Ball_Y",      np.nan)
         bxt = float(row.get("Ball_xT",     0) or 0)
@@ -598,8 +637,8 @@ def build_animated_fig(
             x=[float(bx) * PITCH_W] if pd.notna(bx) else [None],
             y=[float(by) * PITCH_H] if pd.notna(by) else [None],
             mode="markers",
-            marker=dict(size=14, color=COLOR_BALL,
-                        line=dict(color="#888", width=1.5)),
+            marker=dict(size=14, color="rgba(255,215,0,0.55)",
+                        line=dict(color="#aaa", width=1.5)),
             customdata=[[bxt, bgd]],
             hovertemplate=(
                 "<b>Ball</b><br>"
@@ -649,15 +688,15 @@ def build_animated_fig(
         showlegend=False,
         updatemenus=[{
             "type": "buttons",
-            "showactive": True,
+            "showactive": False,
             "bgcolor": "#1e2a1e",
             "bordercolor": "rgba(255,255,255,0.20)",
             "font": {"color": "white", "size": 13},
             "x": 0.0, "y": -0.13,
             "xanchor": "left", "yanchor": "top",
-            "direction": "left",
+            "direction": "right",
             "buttons": [
-                {"label": "▶ ×1",
+                {"label": "▶",
                  "method": "animate",
                  "args": [None, {"frame": {"duration": int(1000 / fps), "redraw": True},
                                  **btn_common}]},
@@ -668,6 +707,10 @@ def build_animated_fig(
                 {"label": "×0.5",
                  "method": "animate",
                  "args": [None, {"frame": {"duration": int(2000 / fps), "redraw": True},
+                                 **btn_common}]},
+                {"label": "×1",
+                 "method": "animate",
+                 "args": [None, {"frame": {"duration": int(1000 / fps), "redraw": True},
                                  **btn_common}]},
                 {"label": "×2",
                  "method": "animate",
@@ -711,6 +754,9 @@ def build_zone_animated_fig(
     show_xt: bool,
     trail_frames: int,
     fps: float = 25.0,
+    show_home: bool = True,
+    show_away: bool = True,
+    xt_side: str = "Home",
 ) -> go.Figure:
     """
     Zone-mode variant of build_animated_fig.
@@ -726,6 +772,8 @@ def build_zone_animated_fig(
     a_nums   = away_nums(df)
     n_frames = len(df)
 
+    xt_map_away = xt_map[:, ::-1]   # mirror for Away team
+
     # Ensure LBP columns exist
     df = _compute_lbp_inapp(df, fps, h_nums, a_nums)
 
@@ -740,24 +788,50 @@ def build_zone_animated_fig(
         xc   = np.arange(X_BINS) + 0.5
         yc   = np.arange(Y_BINS) + 0.5
         zmax = float(np.percentile(xt_map[xt_map > 0], 99)) if xt_map.max() > 0 else 1.0
-        static.append(go.Heatmap(
-            z=xt_map.tolist(), x=xc.tolist(), y=yc.tolist(),
-            colorscale=[
-                [0.00, "rgba(0,40,0,0)"],
-                [0.25, "rgba(50,205,50,0.18)"],
-                [0.50, "rgba(255,215,0,0.35)"],
-                [0.75, "rgba(255,100,0,0.55)"],
-                [1.00, "rgba(200,0,30,0.80)"],
-            ],
-            zmin=0, zmax=zmax,
-            showscale=True,
-            colorbar=dict(
-                title=dict(text="xT", font=dict(color="white", size=11)),
-                thickness=10, len=0.55,
-                tickfont=dict(color="white", size=9),
-            ),
-            hoverinfo="skip",
-        ))
+
+        # Home xT heatmap (warm colorscale)
+        if xt_side in ("Home", "両方"):
+            h_opacity = 0.65 if xt_side == "両方" else 1.0
+            static.append(go.Heatmap(
+                z=xt_map.tolist(), x=xc.tolist(), y=yc.tolist(),
+                colorscale=[
+                    [0.00, "rgba(0,40,0,0)"],
+                    [0.25, f"rgba(50,205,50,{0.18*h_opacity:.2f})"],
+                    [0.50, f"rgba(255,215,0,{0.35*h_opacity:.2f})"],
+                    [0.75, f"rgba(255,100,0,{0.55*h_opacity:.2f})"],
+                    [1.00, f"rgba(200,0,30,{0.80*h_opacity:.2f})"],
+                ],
+                zmin=0, zmax=zmax,
+                showscale=(xt_side != "両方"),
+                colorbar=dict(
+                    title=dict(text="xT (Home)", font=dict(color="white", size=11)),
+                    thickness=10, len=0.55,
+                    tickfont=dict(color="white", size=9),
+                ),
+                hoverinfo="skip",
+            ))
+
+        # Away xT heatmap (cool blue colorscale, mirrored)
+        if xt_side in ("Away", "両方"):
+            a_opacity = 0.65 if xt_side == "両方" else 1.0
+            static.append(go.Heatmap(
+                z=xt_map_away.tolist(), x=xc.tolist(), y=yc.tolist(),
+                colorscale=[
+                    [0.00, "rgba(0,0,60,0)"],
+                    [0.25, f"rgba(0,100,255,{0.18*a_opacity:.2f})"],
+                    [0.50, f"rgba(0,200,255,{0.35*a_opacity:.2f})"],
+                    [0.75, f"rgba(100,0,255,{0.55*a_opacity:.2f})"],
+                    [1.00, f"rgba(200,0,200,{0.80*a_opacity:.2f})"],
+                ],
+                zmin=0, zmax=zmax,
+                showscale=True,
+                colorbar=dict(
+                    title=dict(text="xT (Away)", font=dict(color="white", size=11)),
+                    thickness=10, len=0.55, x=1.08,
+                    tickfont=dict(color="white", size=9),
+                ),
+                hoverinfo="skip",
+            ))
 
     for tr in _pitch_traces():
         static.append(tr)
@@ -813,55 +887,61 @@ def build_zone_animated_fig(
                               line=dict(color="rgba(255,68,68,0.22)", width=1),
                               showlegend=False, hoverinfo="skip"))
 
-        # ④ home player dots (blue)
-        hpx = [float(row.get(f"Home_P{n}_X", np.nan)) * PITCH_W for n in h_nums]
-        hpy = [float(row.get(f"Home_P{n}_Y", np.nan)) * PITCH_H for n in h_nums]
-        h_cd = [
-            [n, int(row.get(f"Home_P{n}_GridID") or 0), float(row.get(f"Home_P{n}_xT") or 0.0)]
-            for n in h_nums
-        ]
-        out.append(go.Scatter(
-            x=hpx, y=hpy,
-            mode="markers+text",
-            marker=dict(size=22, color=COLOR_HOME, line=dict(color="white", width=1.8)),
-            text=[str(n) for n in h_nums],
-            textfont=dict(color="white", size=10, family="Arial Black"),
-            textposition="middle center",
-            customdata=h_cd,
-            hovertemplate=(
-                "<b>Home P%{customdata[0]}</b><br>"
-                "GridID : %{customdata[1]}<br>"
-                "xT     : %{customdata[2]:.4f}"
-                "<extra></extra>"
-            ),
-            showlegend=False,
-        ))
+        # ④ home player dots (blue) — hidden when show_home=False
+        if show_home:
+            hpx = [float(row.get(f"Home_P{n}_X", np.nan)) * PITCH_W for n in h_nums]
+            hpy = [float(row.get(f"Home_P{n}_Y", np.nan)) * PITCH_H for n in h_nums]
+            h_cd = [
+                [n, int(row.get(f"Home_P{n}_GridID") or 0), float(row.get(f"Home_P{n}_xT") or 0.0)]
+                for n in h_nums
+            ]
+            out.append(go.Scatter(
+                x=hpx, y=hpy,
+                mode="markers+text",
+                marker=dict(size=22, color=COLOR_HOME, line=dict(color="white", width=1.8)),
+                text=[str(n) for n in h_nums],
+                textfont=dict(color="white", size=10, family="Arial Black"),
+                textposition="middle center",
+                customdata=h_cd,
+                hovertemplate=(
+                    "<b>Home P%{customdata[0]}</b><br>"
+                    "GridID : %{customdata[1]}<br>"
+                    "xT     : %{customdata[2]:.4f}"
+                    "<extra></extra>"
+                ),
+                showlegend=False,
+            ))
+        else:
+            out.append(go.Scatter(x=[], y=[], mode="markers", showlegend=False, hoverinfo="skip"))
 
-        # ⑤ away player dots (red)
-        apx = [float(row.get(f"Away_P{n}_X", np.nan)) * PITCH_W for n in a_nums]
-        apy = [float(row.get(f"Away_P{n}_Y", np.nan)) * PITCH_H for n in a_nums]
-        a_cd = [
-            [n, int(row.get(f"Away_P{n}_GridID") or 0), float(row.get(f"Away_P{n}_xT") or 0.0)]
-            for n in a_nums
-        ]
-        out.append(go.Scatter(
-            x=apx, y=apy,
-            mode="markers+text",
-            marker=dict(size=22, color=COLOR_AWAY, line=dict(color="white", width=1.8)),
-            text=[str(n) for n in a_nums],
-            textfont=dict(color="white", size=10, family="Arial Black"),
-            textposition="middle center",
-            customdata=a_cd,
-            hovertemplate=(
-                "<b>Away P%{customdata[0]}</b><br>"
-                "GridID : %{customdata[1]}<br>"
-                "xT     : %{customdata[2]:.4f}"
-                "<extra></extra>"
-            ),
-            showlegend=False,
-        ))
+        # ⑤ away player dots (red) — hidden when show_away=False
+        if show_away:
+            apx = [float(row.get(f"Away_P{n}_X", np.nan)) * PITCH_W for n in a_nums]
+            apy = [float(row.get(f"Away_P{n}_Y", np.nan)) * PITCH_H for n in a_nums]
+            a_cd = [
+                [n, int(row.get(f"Away_P{n}_GridID") or 0), float(row.get(f"Away_P{n}_xT") or 0.0)]
+                for n in a_nums
+            ]
+            out.append(go.Scatter(
+                x=apx, y=apy,
+                mode="markers+text",
+                marker=dict(size=22, color=COLOR_AWAY, line=dict(color="white", width=1.8)),
+                text=[str(n) for n in a_nums],
+                textfont=dict(color="white", size=10, family="Arial Black"),
+                textposition="middle center",
+                customdata=a_cd,
+                hovertemplate=(
+                    "<b>Away P%{customdata[0]}</b><br>"
+                    "GridID : %{customdata[1]}<br>"
+                    "xT     : %{customdata[2]:.4f}"
+                    "<extra></extra>"
+                ),
+                showlegend=False,
+            ))
+        else:
+            out.append(go.Scatter(x=[], y=[], mode="markers", showlegend=False, hoverinfo="skip"))
 
-        # ⑥ ball dot (yellow)
+        # ⑥ ball dot (semi-transparent yellow)
         bx  = row.get("Ball_X",    np.nan)
         by  = row.get("Ball_Y",    np.nan)
         bxt = float(row.get("Ball_xT",   0) or 0)
@@ -870,7 +950,7 @@ def build_zone_animated_fig(
             x=[float(bx) * PITCH_W] if pd.notna(bx) else [None],
             y=[float(by) * PITCH_H] if pd.notna(by) else [None],
             mode="markers",
-            marker=dict(size=14, color=COLOR_BALL, line=dict(color="#888", width=1.5)),
+            marker=dict(size=14, color="rgba(255,215,0,0.55)", line=dict(color="#aaa", width=1.5)),
             customdata=[[bxt, bgd]],
             hovertemplate=(
                 "<b>Ball</b><br>"
@@ -962,15 +1042,15 @@ def build_zone_animated_fig(
         showlegend=False,
         updatemenus=[{
             "type": "buttons",
-            "showactive": True,
+            "showactive": False,
             "bgcolor": "#1e2a1e",
             "bordercolor": "rgba(255,255,255,0.20)",
             "font": {"color": "white", "size": 13},
             "x": 0.0, "y": -0.13,
             "xanchor": "left", "yanchor": "top",
-            "direction": "left",
+            "direction": "right",
             "buttons": [
-                {"label": "▶ ×1", "method": "animate",
+                {"label": "▶", "method": "animate",
                  "args": [None, {"frame": {"duration": int(1000 / fps), "redraw": True},
                                  **btn_common}]},
                 {"label": "⏸", "method": "animate",
@@ -978,6 +1058,9 @@ def build_zone_animated_fig(
                                    "mode": "immediate", "transition": {"duration": 0}}]},
                 {"label": "×0.5", "method": "animate",
                  "args": [None, {"frame": {"duration": int(2000 / fps), "redraw": True},
+                                 **btn_common}]},
+                {"label": "×1", "method": "animate",
+                 "args": [None, {"frame": {"duration": int(1000 / fps), "redraw": True},
                                  **btn_common}]},
                 {"label": "×2", "method": "animate",
                  "args": [None, {"frame": {"duration": int(500 / fps), "redraw": True},
@@ -1336,8 +1419,20 @@ streamlit run app_22.py
 
         st.markdown("### 表示オプション")
         show_xt      = st.toggle("xTヒートマップ",   value=True)
+        xt_side = st.radio(
+            "xTマップ表示チーム",
+            ["Home", "Away", "両方"],
+            index=0,
+            horizontal=True,
+            help="Home：ホーム攻撃方向(赤系) / Away：アウェイ攻撃方向(青系) / 両方：重ね表示",
+            disabled=not show_xt,
+        )
         show_causal  = st.toggle("貢献度パネル",     value=True)
         trail_frames = st.slider("軌跡フレーム数", 0, 100, 20, step=5)
+        st.markdown("**選手表示**")
+        _pcol1, _pcol2 = st.columns(2)
+        show_home = _pcol1.checkbox("🔵 Home", value=True)
+        show_away = _pcol2.checkbox("🔴 Away", value=True)
         st.divider()
 
         st.markdown("### xTグラフ — 個別選手（任意）")
@@ -1354,8 +1449,8 @@ streamlit run app_22.py
             "🔴 Away（赤）\n"
             "🟡 ボール（黄）\n\n"
             "**再生操作**\n\n"
-            "▶ ×1 / ×0.5 / ×2 / ×4 : 速度\n"
-            "⏸ : 一時停止\n"
+            "▶ : 再生  ⏸ : 一時停止\n"
+            "×0.5 / ×1 / ×2 / ×4 : 速度\n"
             "⏮ : 先頭へ\n"
             "スライダー : コマ送り\n\n"
             "ホバーで GridID・xT 表示"
@@ -1563,11 +1658,17 @@ streamlit run app_22.py
                 "Zone1: セーフ (X<33%) | Zone2: ビルド (33-66%) | "
                 "Zone3: アタッキングサード (X>66%) | 緑矢印: ラインブレイクパス"
             )
-            fig_pitch = build_zone_animated_fig(xt_path, scene_path, show_xt, trail_frames, fps)
+            fig_pitch = build_zone_animated_fig(
+                xt_path, scene_path, show_xt, trail_frames, fps,
+                show_home=show_home, show_away=show_away, xt_side=xt_side,
+            )
         else:
             st.markdown("#### ピッチビュー  🔵 Home  🔴 Away  🟡 Ball")
-            st.caption("▶/⏸/×0.5/×2/×4/⏮ で操作 | スライダーでコマ送り | ホバーで詳細表示")
-            fig_pitch = build_animated_fig(xt_path, scene_path, show_xt, trail_frames, fps)
+            st.caption("▶/⏸/×0.5/×1/×2/×4/⏮ で操作 | スライダーでコマ送り | ホバーで詳細表示")
+            fig_pitch = build_animated_fig(
+                xt_path, scene_path, show_xt, trail_frames, fps,
+                show_home=show_home, show_away=show_away, xt_side=xt_side,
+            )
         st.plotly_chart(fig_pitch, use_container_width=True,
                         config={"displayModeBar": False})
 
