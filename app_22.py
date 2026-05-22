@@ -25,6 +25,7 @@ Run
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -57,6 +58,24 @@ COLOR_PITCH = "#1a3d1a"
 # ── Zone evaluation constants (mirrors xt_pipeline_22.py) ─────────────────────
 ZONE_SAFE_MAX  = 0.33   # normalised X: safe zone upper bound
 ZONE_BUILD_MAX = 0.66   # normalised X: build zone upper / attacking third start
+
+# ── Match metadata helpers ─────────────────────────────────────────────────────
+
+def _fmt_mmss(sec: float) -> str:
+    """Convert seconds to M:SS string (e.g. 4452 → '74:12')."""
+    m, s = divmod(int(sec), 60)
+    return f"{m}:{s:02d}"
+
+
+def load_match_info(path: str) -> dict:
+    p = Path(path)
+    if not p.exists():
+        return {}
+    try:
+        with open(p, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
 
 # ── CSS ───────────────────────────────────────────────────────────────────────
 st.markdown("""
@@ -998,9 +1017,19 @@ def build_timeline_fig(
     sel_away: list[int],
     h_nums: list[int],
     a_nums: list[int],
+    time_offset: float = 0.0,
 ) -> go.Figure:
-    fig   = go.Figure()
-    times = df["Time"].values
+    fig = go.Figure()
+
+    # Use Match_Time_sec + user offset when available, else relative Time
+    if "Match_Time_sec" in df.columns and (time_offset != 0.0 or df["Match_Time_sec"].max() > 60):
+        times    = (df["Match_Time_sec"] + time_offset).values
+        x_label  = "試合時刻 (秒)"
+        tick_fmt = lambda v: _fmt_mmss(v)   # noqa: E731  # for annotation only
+    else:
+        times   = df["Time"].values
+        x_label = "Time (sec)"
+        tick_fmt = lambda v: f"{v:.1f}s"   # noqa: E731
 
     # ── team aggregate: max xT per frame ─────────────────────────────────────
     home_xt_cols = [f"Home_P{n}_xT" for n in h_nums if f"Home_P{n}_xT" in df.columns]
@@ -1086,8 +1115,8 @@ def build_timeline_fig(
         ),
         plot_bgcolor="#0e1825", paper_bgcolor="#0e1825",
         xaxis=dict(
-            title="Time (sec)", color="#b0c8e0",
-            range=[0, n_sec],
+            title=x_label, color="#b0c8e0",
+            range=[float(times[0]) if len(times) else 0, n_sec],
             showgrid=True, gridcolor="rgba(255,255,255,0.07)", zeroline=False,
         ),
         yaxis=dict(
@@ -1290,6 +1319,19 @@ streamlit run app_22.py
                                         "外部因果解析システム（GSA等）の出力。\n"
                                         "Home_P1_contribution … Away_P11_contribution"
                                     ))
+        match_info_path = st.text_input(
+            "試合情報 JSON（任意）", "match_info.json",
+            help="xt_pipeline_22.py 実行時に自動生成される match_info.json"
+        )
+        time_offset = st.number_input(
+            "試合時刻オフセット（秒）",
+            value=0.0, step=60.0, format="%.0f",
+            help=(
+                "ウィンドウ開始が試合の何秒目かを入力すると\n"
+                "タイムラインが実際の試合時刻で表示されます。\n"
+                "例: 前半45分以降 = 2700、後半74分 = 4440"
+            ),
+        )
         st.divider()
 
         st.markdown("### 表示オプション")
@@ -1336,6 +1378,93 @@ streamlit run app_22.py
         sel_away = st.multiselect("Away", options=a_nums, default=[],
                                   format_func=lambda n: f"A{n}",
                                   label_visibility="collapsed")
+
+    # ── match info load ───────────────────────────────────────────────────────
+    match_info = load_match_info(match_info_path)
+
+    # ── window re-cut section (sidebar) ───────────────────────────────────────
+    with st.sidebar:
+        st.divider()
+        st.markdown("### 🎬 ウィンドウ再切り出し")
+
+        raw_src = st.text_input(
+            "ソースCSVパス",
+            value="Sample_TrackingData_22.csv",
+            help="xt_pipeline_22.py が読む元のトラッキングCSV",
+        )
+        raw_exists = Path(raw_src).exists()
+
+        if raw_exists:
+            @st.cache_data(show_spinner=False)
+            def _load_raw(path: str, _mt: float) -> pd.DataFrame:
+                return pd.read_csv(path)
+
+            _raw_mt  = Path(raw_src).stat().st_mtime
+            raw_df   = _load_raw(raw_src, _raw_mt)
+            raw_fps_v = int(round(1.0 / pd.to_numeric(raw_df.get("time_sec", pd.Series([0.1])), errors="coerce").diff().dropna().median())) if len(raw_df) > 1 else 10
+            n_raw    = len(raw_df)
+            raw_total_sec = n_raw / raw_fps_v
+
+            st.caption(f"検出: **{n_raw}** フレーム / **{raw_total_sec:.0f}** 秒 @ {raw_fps_v} fps")
+
+            # Goal frame index
+            if "is_goal_frame" in raw_df.columns:
+                default_end = int(raw_df.index[raw_df["is_goal_frame"] == 1].tolist()[-1]) if (raw_df["is_goal_frame"] == 1).any() else n_raw - 1
+            else:
+                default_end = n_raw - 1
+
+            new_end_frame = st.slider(
+                "ウィンドウ終端 (フレーム番号)",
+                min_value=0, max_value=n_raw - 1,
+                value=default_end,
+                help="この番号のフレームを「終端」として window_sec 分遡って切り出します",
+            )
+            new_window_sec = st.slider("ウィンドウ長（秒）", 5, 60, 30, step=5)
+
+            # Preview
+            new_start_frame = max(0, new_end_frame - new_window_sec * raw_fps_v + 1)
+            if "time_sec" in raw_df.columns:
+                t_start = float(raw_df.iloc[new_start_frame]["time_sec"]) + time_offset
+                t_end   = float(raw_df.iloc[new_end_frame]["time_sec"])   + time_offset
+                st.caption(f"切り出し範囲: **{_fmt_mmss(t_start)}** 〜 **{_fmt_mmss(t_end)}**")
+
+            if st.button("このウィンドウで再解析 🔄", type="primary", use_container_width=True):
+                try:
+                    import importlib.util as _ilu
+                    _spec = _ilu.spec_from_file_location("_pipe", Path(raw_src).parent / "xt_pipeline_22.py")
+                    if _spec is None:
+                        # fallback: same dir as app
+                        _spec = _ilu.spec_from_file_location("_pipe", Path(__file__).parent / "xt_pipeline_22.py")
+                    _pipe = _ilu.module_from_spec(_spec)
+                    _spec.loader.exec_module(_pipe)
+
+                    with st.spinner("xT計算中…"):
+                        _xt   = _pipe.load_xt_map(xt_path)
+                        _enr  = _pipe.assign_grid_and_xt_22(raw_df, _xt)
+                        _win  = _enr.iloc[new_start_frame : new_end_frame + 1].reset_index(drop=True)
+                        _ws   = float(raw_df.iloc[new_start_frame]["time_sec"]) if "time_sec" in raw_df.columns else 0.0
+                        _res  = _pipe.reformat_to_22player_schema(_win, raw_fps_v, _ws)
+                        _res  = _pipe.add_zone_and_lbp_columns(_res, raw_fps_v)
+                        _res.to_csv(scene_path, index=False)
+
+                        # Update match_info.json
+                        _meta = match_info.copy() if match_info else {}
+                        _meta.update({
+                            "window_start_sec": round(_ws, 3),
+                            "window_end_sec":   round(float(raw_df.iloc[new_end_frame]["time_sec"]) if "time_sec" in raw_df.columns else _ws + new_window_sec, 3),
+                            "window_sec":       new_window_sec,
+                            "window_frames":    len(_win),
+                        })
+                        with open(match_info_path, "w", encoding="utf-8") as _mf:
+                            json.dump(_meta, _mf, indent=2, ensure_ascii=False)
+
+                    st.success(f"完了: {len(_win)}フレーム ({new_window_sec}秒)")
+                    st.rerun()
+                except Exception as _e:
+                    st.error(f"再解析エラー: {_e}")
+        else:
+            st.caption(f"`{raw_src}` が見つかりません。")
+            st.caption("ローカル環境でソースCSVを指定すると再切り出しができます。")
 
     # ── GSA export section (sidebar, after data is loaded) ────────────────────
     with st.sidebar:
@@ -1391,6 +1520,28 @@ streamlit run app_22.py
         unsafe_allow_html=True,
     )
 
+    # ── scene info banner ─────────────────────────────────────────────────────
+    _ws  = match_info.get("window_start_sec", 0.0) + time_offset
+    _we  = match_info.get("window_end_sec",   match_info.get("window_start_sec", 0.0) + n_frames / fps) + time_offset
+    _mn  = match_info.get("match_name",  "")
+    _mr  = match_info.get("match_round", "")
+    _wf  = match_info.get("window_frames", n_frames)
+
+    if _mn:
+        _t_range = f"{_fmt_mmss(_ws)} 〜 {_fmt_mmss(_we)}" if time_offset != 0 or _ws > 60 else f"{_ws:.1f}s 〜 {_we:.1f}s（試合時刻オフセット未設定）"
+        st.info(
+            f"📍 **{_mn}** | {_mr}  \n"
+            f"現在表示: **{_t_range}** — {_wf} フレーム @ {fps:.0f} fps  \n"
+            f"{'⚠️ サイドバーの「試合時刻オフセット」を設定すると実際の試合時刻で表示されます' if time_offset == 0 and _ws <= 60 else ''}",
+        )
+    else:
+        _t_rel_end = n_frames / fps
+        st.info(
+            f"📍 **表示中**: {scene_path}  \n"
+            f"フレーム 1〜{n_frames} | 相対時刻 0s〜{_t_rel_end:.1f}s | {fps:.0f} fps  \n"
+            f"試合情報を表示するには `match_info.json` をパイプラインで生成してください。"
+        )
+
     # ── metrics ───────────────────────────────────────────────────────────────
     peak_xt = float(df["Ball_xT"].max()) if "Ball_xT" in df.columns else 0.0
     mc = st.columns(5)
@@ -1428,7 +1579,7 @@ streamlit run app_22.py
             st.divider()
 
         st.markdown("#### xT タイムライン（30秒全体）")
-        fig_line = build_timeline_fig(df, sel_home, sel_away, h_nums, a_nums)
+        fig_line = build_timeline_fig(df, sel_home, sel_away, h_nums, a_nums, time_offset)
         st.plotly_chart(fig_line, use_container_width=True,
                         config={"displayModeBar": False})
 

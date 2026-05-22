@@ -1,0 +1,13 @@
+{
+  "match_name": "Brisbane Roar 0-1 Perth Glory",
+  "match_round": "Round 09 | Isuzu UTE A-League 2024-25",
+  "goal_frame_raw": 300,
+  "goal_time_sec": 29.9,
+  "window_start_sec": 0.0,
+  "window_end_sec": 29.9,
+  "window_sec": 30,
+  "window_frames": 300,
+  "fps": 10,
+  "tracking_csv": "Sample_TrackingData_22.csv",
+  "output_csv": "Export_GSA_22players_30s.csv"
+}
