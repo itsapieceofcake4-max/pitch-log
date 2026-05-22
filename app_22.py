@@ -377,6 +377,483 @@ def _compute_lbp_inapp(
     return out
 
 
+# ── Scene import wizard helpers ───────────────────────────────────────────────
+
+def _parse_mmss(s: str) -> float | None:
+    """'M:SS' / 'MM:SS' / plain-seconds string → float seconds, None on error."""
+    s = s.strip()
+    if not s:
+        return None
+    if ":" in s:
+        parts = s.split(":", 1)
+        try:
+            return float(parts[0]) * 60 + float(parts[1])
+        except Exception:
+            return None
+    try:
+        return float(s)
+    except Exception:
+        return None
+
+
+def _tick_mmss(sec: float) -> str:
+    """Float seconds → 'M:SS' label (e.g. 4472 → '74:32')."""
+    sec = max(0.0, float(sec))
+    return f"{int(sec) // 60}:{int(sec) % 60:02d}"
+
+
+def _mini_pitch_fig(row: "pd.Series", h_nums: list[int], a_nums: list[int],
+                    schema: str = "raw") -> "go.Figure":
+    """
+    Static single-frame pitch snapshot for scene preview.
+    schema='raw'  → columns like Home_1_x / ball_x
+    schema='proc' → columns like Home_P1_X / Ball_X
+    """
+    fig = go.Figure()
+    for tr in _pitch_traces():
+        fig.add_trace(tr)
+
+    def _col(raw_name: str, proc_name: str) -> float:
+        v = row.get(raw_name if schema == "raw" else proc_name, np.nan)
+        return float(v) if pd.notna(v) else np.nan
+
+    # Ball
+    bx = _col("ball_x", "Ball_X")
+    by = _col("ball_y", "Ball_Y")
+    if not np.isnan(bx):
+        fig.add_trace(go.Scatter(
+            x=[bx * PITCH_W], y=[by * PITCH_H], mode="markers",
+            marker=dict(size=13, color="rgba(255,215,0,0.8)",
+                        line=dict(color="white", width=1.5)),
+            showlegend=False, hoverinfo="skip",
+        ))
+
+    # Home players
+    hxs = [_col(f"Home_{n}_x", f"Home_P{n}_X") for n in h_nums]
+    hys = [_col(f"Home_{n}_y", f"Home_P{n}_Y") for n in h_nums]
+    fig.add_trace(go.Scatter(
+        x=[v * PITCH_W if not np.isnan(v) else None for v in hxs],
+        y=[v * PITCH_H if not np.isnan(v) else None for v in hys],
+        mode="markers+text",
+        marker=dict(size=17, color=COLOR_HOME, line=dict(color="white", width=1.3)),
+        text=[str(n) for n in h_nums],
+        textfont=dict(color="white", size=8, family="Arial Black"),
+        textposition="middle center",
+        showlegend=False, hoverinfo="skip",
+    ))
+
+    # Away players
+    axs = [_col(f"Away_{n}_x", f"Away_P{n}_X") for n in a_nums]
+    ays = [_col(f"Away_{n}_y", f"Away_P{n}_Y") for n in a_nums]
+    fig.add_trace(go.Scatter(
+        x=[v * PITCH_W if not np.isnan(v) else None for v in axs],
+        y=[v * PITCH_H if not np.isnan(v) else None for v in ays],
+        mode="markers+text",
+        marker=dict(size=17, color=COLOR_AWAY, line=dict(color="white", width=1.3)),
+        text=[str(n) for n in a_nums],
+        textfont=dict(color="white", size=8, family="Arial Black"),
+        textposition="middle center",
+        showlegend=False, hoverinfo="skip",
+    ))
+
+    fig.update_layout(
+        plot_bgcolor=COLOR_PITCH, paper_bgcolor=COLOR_BG,
+        xaxis=dict(range=[-4, PITCH_W + 4], showgrid=False, zeroline=False,
+                   fixedrange=True, visible=False),
+        yaxis=dict(range=[-4, PITCH_H + 4], showgrid=False, zeroline=False,
+                   scaleanchor="x", scaleratio=1, fixedrange=True, visible=False),
+        margin=dict(l=2, r=2, t=2, b=2),
+        height=240, showlegend=False, dragmode=False,
+    )
+    return fig
+
+
+# ── Wizard step indicator ──────────────────────────────────────────────────────
+
+def _wizard_steps(current: int) -> None:
+    labels = ["① データ読み込み", "② シーン特定", "③ シーン情報", "④ 変換・保存"]
+    cols   = st.columns(4)
+    for i, (col, label) in enumerate(zip(cols, labels), start=1):
+        done   = i < current
+        active = i == current
+        color  = "#5ec4ff" if active else ("#4ade80" if done else "#4a5568")
+        border = f"2px solid {color}"
+        weight = "700" if active else "500"
+        col.markdown(
+            f"<div style='text-align:center;padding:8px 4px;border-radius:8px;"
+            f"border:{border};color:{color};font-weight:{weight};font-size:.82rem'>"
+            f"{'✓ ' if done else ''}{label}</div>",
+            unsafe_allow_html=True,
+        )
+    st.markdown("<br>", unsafe_allow_html=True)
+
+
+# ── Full scene import wizard ───────────────────────────────────────────────────
+
+def render_import_wizard(xt_path: str, scene_path: str, match_info_path: str) -> None:
+    """4-step wizard: load full CSV → find scene → metadata → convert & save."""
+    ss   = st.session_state
+    step = ss.get("import_step", 1)
+    _wizard_steps(step)
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # STEP 1 — Load full tracking CSV
+    # ─────────────────────────────────────────────────────────────────────────
+    if step == 1:
+        st.markdown("### データ読み込み")
+        st.caption(
+            "試合全体（フルタイム）のトラッキングCSVを読み込みます。  \n"
+            "30秒への切り出しは次のステップで行います。"
+        )
+
+        _src = st.radio("データソース", ["💾 ファイルアップロード", "🌐 URL指定"],
+                        horizontal=True, key="wiz_src")
+        _raw_bytes: bytes | None = None
+        _fname = ""
+
+        if _src == "💾 ファイルアップロード":
+            _up = st.file_uploader(
+                "トラッキングCSV（試合全体）", type=["csv"],
+                help=(
+                    "必要なカラム:\n"
+                    "frame, time_sec, ball_x, ball_y,\n"
+                    "Home_1_x, Home_1_y … Away_11_x, Away_11_y\n"
+                    "（座標は 0〜1 に正規化）"
+                ),
+                key="wiz_upload",
+            )
+            if _up:
+                _raw_bytes = _up.getvalue()
+                _fname     = _up.name
+                ss.pop("wiz_raw_bytes", None)
+
+        else:
+            _url = st.text_input("CSV の URL",
+                                 placeholder="https://example.com/match_tracking.csv",
+                                 key="wiz_url")
+            if st.button("⬇️ ダウンロード", key="wiz_dl", use_container_width=True):
+                if _url:
+                    try:
+                        import urllib.request as _ur
+                        with st.spinner("ダウンロード中…"):
+                            req = _ur.Request(_url, headers={"User-Agent": "PitchLog/1.0"})
+                            with _ur.urlopen(req, timeout=60) as r:
+                                _dl = r.read()
+                        ss["wiz_raw_bytes"] = _dl
+                        ss["wiz_fname"]     = _url.split("/")[-1]
+                        st.success(f"ダウンロード完了  ({len(_dl) // 1024} KB)")
+                    except Exception as e:
+                        st.error(f"ダウンロードエラー: {e}")
+                else:
+                    st.warning("URLを入力してください")
+
+            if "wiz_raw_bytes" in ss:
+                _raw_bytes = ss["wiz_raw_bytes"]
+                _fname     = ss.get("wiz_fname", "downloaded.csv")
+                st.caption(f"✅ ダウンロード済  ({len(_raw_bytes) // 1024} KB)")
+
+        if _raw_bytes:
+            import io as _io
+            with st.spinner("CSVを解析中…"):
+                _raw_df = pd.read_csv(_io.BytesIO(_raw_bytes))
+            _dt = pd.to_numeric(
+                _raw_df["time_sec"] if "time_sec" in _raw_df.columns else pd.Series([0.1]),
+                errors="coerce",
+            ).diff().dropna()
+            _fps = int(round(1.0 / _dt.median())) if len(_dt) > 0 and _dt.median() > 0 else 10
+            _dur = len(_raw_df) / _fps
+
+            c1, c2, c3 = st.columns(3)
+            c1.metric("総フレーム数", f"{len(_raw_df):,}")
+            c2.metric("試合時間",     f"{int(_dur // 60)}分 {int(_dur % 60)}秒")
+            c3.metric("FPS",          str(_fps))
+
+            _has_ball = "ball_x" in _raw_df.columns or "Ball_X" in _raw_df.columns
+            if not _has_ball:
+                st.error("ball_x / Ball_X カラムが見つかりません。")
+                with st.expander("カラム一覧を確認"):
+                    st.write(list(_raw_df.columns))
+            else:
+                st.success(f"✅ **{_fname}**  読み込み完了")
+                if st.button("次へ → シーン特定 ▶", type="primary", use_container_width=True):
+                    ss["import_raw_df"]    = _raw_df
+                    ss["import_raw_fps"]   = _fps
+                    ss["import_raw_dur"]   = _dur
+                    ss["import_raw_fname"] = _fname
+                    ss["import_step"]      = 2
+                    st.rerun()
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # STEP 2 — Scene finder: trajectory timeline + time range picker + preview
+    # ─────────────────────────────────────────────────────────────────────────
+    elif step == 2:
+        _raw_df = ss.get("import_raw_df")
+        _fps    = ss.get("import_raw_fps", 10)
+        _dur    = ss.get("import_raw_dur",  0.0)
+
+        if _raw_df is None:
+            st.error("データがありません。Step 1 からやり直してください。")
+            if st.button("← Step 1 へ戻る"):
+                ss["import_step"] = 1; st.rerun()
+            return
+
+        st.markdown("### シーン特定 — 切り出す場面を選ぶ")
+        st.caption(
+            "映像を見ながら場面の時刻を入力してください。  \n"
+            "下のボールトラジェクトリで場面の大まかな位置も確認できます。"
+        )
+
+        # Ball trajectory timeline (downsampled ≤2000 pts)
+        _bx_col = "ball_x" if "ball_x" in _raw_df.columns else "Ball_X"
+        _t_col  = "time_sec" if "time_sec" in _raw_df.columns else "Time"
+        _ds     = max(1, len(_raw_df) // 2000)
+        _tl     = _raw_df.iloc[::_ds].copy()
+        _tv     = (pd.to_numeric(_tl[_t_col], errors="coerce").values
+                   if _t_col in _tl.columns else np.arange(len(_tl)) / _fps)
+        _bxv    = pd.to_numeric(_tl[_bx_col], errors="coerce").fillna(0.5).values * PITCH_W
+
+        _tl_fig = go.Figure()
+        _tl_fig.add_trace(go.Scatter(
+            x=_tv, y=_bxv, mode="lines",
+            line=dict(color="rgba(255,215,0,0.75)", width=1.5),
+            hovertemplate="時刻: %{x:.1f}s<br>Ball X: %{y:.1f}m<extra></extra>",
+        ))
+        _tl_fig.add_hline(y=PITCH_W / 2,
+                          line=dict(color="rgba(255,255,255,0.25)", dash="dot", width=1))
+        _tick_vals = list(range(0, int(_dur) + 60, 300))
+        _tl_fig.update_layout(
+            plot_bgcolor="#0e1825", paper_bgcolor="#0e1825",
+            xaxis=dict(
+                title="時刻",
+                tickvals=_tick_vals,
+                ticktext=[_tick_mmss(v) for v in _tick_vals],
+                color="#b0c8e0", showgrid=True,
+                gridcolor="rgba(255,255,255,0.07)",
+            ),
+            yaxis=dict(title="Ball X (m)", color="#b0c8e0",
+                       range=[0, PITCH_W],
+                       showgrid=True, gridcolor="rgba(255,255,255,0.07)"),
+            margin=dict(l=10, r=10, t=8, b=40), height=200, showlegend=False,
+        )
+        st.plotly_chart(_tl_fig, use_container_width=True,
+                        config={"displayModeBar": False})
+
+        st.divider()
+        st.markdown("#### 切り出し範囲を入力  （M:SS または 秒）")
+        _ic1, _ic2 = st.columns(2)
+        _ts_str = _ic1.text_input("▶ 開始時刻", value="0:00", key="wiz_tstart",
+                                   help="例: 74:02  または  4442")
+        _te_str = _ic2.text_input("⏹ 終了時刻", value=_tick_mmss(min(30.0, _dur)),
+                                   key="wiz_tend", help="例: 74:32  または  4472")
+
+        _ts = _parse_mmss(_ts_str)
+        _te = _parse_mmss(_te_str)
+        _ok = True
+        if _ts is None:   _ic1.error("形式エラー  例: 74:02"); _ok = False
+        if _te is None:   _ic2.error("形式エラー  例: 74:32"); _ok = False
+        if _ok and _te <= _ts:
+            st.error("終了時刻は開始時刻より後にしてください"); _ok = False
+
+        if _ok:
+            # Frame indices
+            if _t_col in _raw_df.columns:
+                _tv_full = pd.to_numeric(_raw_df[_t_col], errors="coerce").fillna(0)
+                _fs = int((_tv_full - _ts).abs().idxmin())
+                _fe = int((_tv_full - _te).abs().idxmin())
+            else:
+                _fs = max(0, int(_ts * _fps))
+                _fe = min(len(_raw_df) - 1, int(_te * _fps))
+            _fe = min(_fe, len(_raw_df) - 1)
+
+            _dur_sel = (_fe - _fs) / _fps
+            st.info(
+                f"📍 **{_tick_mmss(_ts)}** 〜 **{_tick_mmss(_te)}** — "
+                f"{_dur_sel:.1f}秒 / {_fe - _fs}フレーム"
+            )
+
+            # Detect raw player column numbers
+            _hraw = sorted({int(m.group(1)) for col in _raw_df.columns
+                            for m in [re.match(r"^Home_(\d+)_x$", col)] if m})
+            _araw = sorted({int(m.group(1)) for col in _raw_df.columns
+                            for m in [re.match(r"^Away_(\d+)_x$", col)] if m})
+            if not _hraw:  # processed schema fallback
+                _hraw = sorted({int(m.group(1)) for col in _raw_df.columns
+                                for m in [re.match(r"^Home_P(\d+)_X$", col)] if m})
+                _araw = sorted({int(m.group(1)) for col in _raw_df.columns
+                                for m in [re.match(r"^Away_P(\d+)_X$", col)] if m})
+            _schema = "raw" if "ball_x" in _raw_df.columns else "proc"
+
+            # Mini pitch preview
+            st.markdown("#### フレームプレビュー")
+            _pc1, _pc2 = st.columns(2)
+            with _pc1:
+                st.caption(f"▶ 開始フレーム  {_tick_mmss(_ts)}")
+                st.plotly_chart(
+                    _mini_pitch_fig(_raw_df.iloc[_fs], _hraw, _araw, _schema),
+                    use_container_width=True, config={"displayModeBar": False},
+                )
+            with _pc2:
+                st.caption(f"⏹ 終了フレーム  {_tick_mmss(_te)}")
+                st.plotly_chart(
+                    _mini_pitch_fig(_raw_df.iloc[_fe], _hraw, _araw, _schema),
+                    use_container_width=True, config={"displayModeBar": False},
+                )
+
+            st.divider()
+            _n1, _n2 = st.columns(2)
+            if _n1.button("← 戻る", use_container_width=True):
+                ss["import_step"] = 1; st.rerun()
+            if _n2.button("次へ → シーン情報 ▶", type="primary", use_container_width=True):
+                ss.update({
+                    "import_frame_start": _fs,
+                    "import_frame_end":   _fe,
+                    "import_t_start":     _ts,
+                    "import_t_end":       _te,
+                    "import_h_nums_raw":  _hraw,
+                    "import_a_nums_raw":  _araw,
+                    "import_schema":      _schema,
+                    "import_step":        3,
+                })
+                st.rerun()
+        else:
+            if st.button("← 戻る", use_container_width=True):
+                ss["import_step"] = 1; st.rerun()
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # STEP 3 — Scene metadata
+    # ─────────────────────────────────────────────────────────────────────────
+    elif step == 3:
+        _ts = ss.get("import_t_start", 0.0)
+        _te = ss.get("import_t_end",  30.0)
+
+        st.markdown("### シーン情報を入力")
+        st.info(
+            f"切り出し範囲: **{_tick_mmss(_ts)}** 〜 **{_tick_mmss(_te)}**  "
+            f"（{_te - _ts:.1f}秒）"
+        )
+
+        SCENE_TYPES = [
+            "⚽ ゴールシーン",
+            "🛡️ ディフェンスシーン",
+            "🔄 プレッシング",
+            "🏗️ ビルドアップ",
+            "📍 セットプレー（CK/FK）",
+            "⚠️ 被ゴール",
+            "📝 その他",
+        ]
+        _stype = st.selectbox("シーンタイプ", SCENE_TYPES, key="wiz_stype")
+        _sname = st.text_input(
+            "シーン名（自由記述）",
+            placeholder="例: 74分 左サイドからのカウンター",
+            key="wiz_sname",
+        )
+        st.divider()
+        _mname  = st.text_input("試合名",    placeholder="Brisbane Roar 0-1 Perth Glory", key="wiz_mname")
+        _mround = st.text_input("ラウンド",  placeholder="Round 09 | A-League 2024-25",   key="wiz_mround")
+
+        st.divider()
+        _n1, _n2 = st.columns(2)
+        if _n1.button("← 戻る", use_container_width=True):
+            ss["import_step"] = 2; st.rerun()
+        if _n2.button("次へ → 変換確認 ▶", type="primary", use_container_width=True):
+            ss.update({
+                "import_scene_type":  _stype,
+                "import_scene_name":  _sname,
+                "import_match_name":  _mname,
+                "import_match_round": _mround,
+                "import_step":        4,
+            })
+            st.rerun()
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # STEP 4 — Convert & save
+    # ─────────────────────────────────────────────────────────────────────────
+    elif step == 4:
+        _raw_df = ss.get("import_raw_df")
+        _fps    = ss.get("import_raw_fps", 10)
+        _fs     = ss.get("import_frame_start", 0)
+        _fe     = ss.get("import_frame_end",   0)
+        _ts     = ss.get("import_t_start", 0.0)
+        _te     = ss.get("import_t_end",  30.0)
+        _stype  = ss.get("import_scene_type",  "")
+        _sname  = ss.get("import_scene_name",  "")
+        _mname  = ss.get("import_match_name",  "Unknown Match")
+        _mround = ss.get("import_match_round", "")
+
+        st.markdown("### 変換・保存の確認")
+
+        c1, c2 = st.columns(2)
+        c1.markdown(
+            f"**試合**  \n{_mname or '（未入力）'}  \n{_mround or ''}",
+        )
+        c2.markdown(
+            f"**シーン**  \n{_stype}  \n{_sname or '（名前なし）'}",
+        )
+        st.info(
+            f"⏱ **{_tick_mmss(_ts)}** 〜 **{_tick_mmss(_te)}**  "
+            f"（{_te - _ts:.1f}秒 / {_fe - _fs}フレーム @ {_fps} fps）  \n"
+            f"出力先: `{scene_path}`  /  `{match_info_path}`"
+        )
+
+        _n1, _n2 = st.columns(2)
+        if _n1.button("← 戻る", use_container_width=True):
+            ss["import_step"] = 3; st.rerun()
+
+        if _n2.button("🔄 変換して読み込む", type="primary", use_container_width=True):
+            try:
+                import importlib.util as _ilu
+
+                _pipe_path = Path(__file__).parent / "xt_pipeline_22.py"
+                if not _pipe_path.exists():
+                    _pipe_path = Path(scene_path).parent / "xt_pipeline_22.py"
+                if not _pipe_path.exists():
+                    st.error("xt_pipeline_22.py が見つかりません。")
+                    st.stop()
+
+                _spec = _ilu.spec_from_file_location("_pipe", _pipe_path)
+                _pipe = _ilu.module_from_spec(_spec)
+                _spec.loader.exec_module(_pipe)
+
+                with st.spinner("xT計算・LBP検出中…"):
+                    _xt_arr = _pipe.load_xt_map(xt_path)
+                    _enr    = _pipe.assign_grid_and_xt_22(_raw_df, _xt_arr)
+                    _win    = _enr.iloc[_fs:_fe + 1].reset_index(drop=True)
+                    _res    = _pipe.reformat_to_22player_schema(_win, _fps, _ts)
+                    _res    = _pipe.add_zone_and_lbp_columns(_res, _fps)
+                    _res.to_csv(scene_path, index=False)
+
+                    _meta = {
+                        "match_name":       _mname or "Unknown Match",
+                        "match_round":      _mround,
+                        "scene_type":       _stype,
+                        "scene_name":       _sname,
+                        "goal_time_sec":    round(_te, 3),
+                        "window_start_sec": round(_ts, 3),
+                        "window_end_sec":   round(_te, 3),
+                        "window_sec":       round(_te - _ts, 1),
+                        "window_frames":    len(_win),
+                        "fps":              _fps,
+                        "output_csv":       scene_path,
+                    }
+                    with open(match_info_path, "w", encoding="utf-8") as _mf:
+                        json.dump(_meta, _mf, indent=2, ensure_ascii=False)
+
+                st.success(
+                    f"✅ 変換完了！  {len(_win)} フレーム（{_te - _ts:.1f}秒）を保存しました。"
+                )
+                # Clear wizard state and exit
+                for k in list(ss.keys()):
+                    if k.startswith("import_") or k.startswith("wiz_"):
+                        ss.pop(k, None)
+                ss["import_mode"] = False
+                st.rerun()
+
+            except Exception as _e:
+                import traceback as _tb
+                st.error(f"変換エラー: {_e}")
+                st.code(_tb.format_exc(), language="python")
+
+
 def _zone_boundary_traces() -> list:
     """Dashed white vertical lines at zone boundaries (X=0.33 and X=0.66 normalised)."""
     traces = []
@@ -1316,10 +1793,30 @@ def render_lbp_alerts(df: pd.DataFrame) -> None:
 
 def main() -> None:
 
+    # ── session state defaults ────────────────────────────────────────────────
+    if "import_mode" not in st.session_state:
+        st.session_state["import_mode"] = False
+    if "import_step" not in st.session_state:
+        st.session_state["import_step"] = 1
+
     # ── sidebar ───────────────────────────────────────────────────────────────
     with st.sidebar:
         st.markdown("## ⚽ Pitch Log")
         st.markdown("**Phase 4 Extended: 22-Player Visualization**")
+        st.divider()
+
+        # ── シーン取り込みウィザード toggle ───────────────────────────────
+        _in_wizard = st.session_state["import_mode"]
+        if _in_wizard:
+            if st.button("← ビューアに戻る", use_container_width=True):
+                st.session_state["import_mode"] = False
+                st.rerun()
+        else:
+            if st.button("📥 新しいシーンを取り込む", type="primary",
+                         use_container_width=True):
+                st.session_state["import_mode"] = True
+                st.session_state["import_step"] = 1
+                st.rerun()
         st.divider()
 
         # ── 解析モード ────────────────────────────────────────────────────
@@ -1787,9 +2284,20 @@ streamlit run app_22.py
             help=f"保存ファイル名: {fname}",
         )
 
+    # ── wizard mode: show full-page wizard instead of viewer ─────────────────
+    if st.session_state.get("import_mode", False):
+        st.markdown(
+            "<h2 style='margin-bottom:0'>📥 シーン取り込みウィザード</h2>"
+            "<p style='color:#8b949e;margin-top:2px;font-size:.85rem'>"
+            "生トラッキングCSVを読み込み、シーンを指定して変換します</p>",
+            unsafe_allow_html=True,
+        )
+        render_import_wizard(xt_path, scene_path, match_info_path)
+        return   # skip the viewer entirely while in wizard mode
+
     # ── header ────────────────────────────────────────────────────────────────
     st.markdown(
-        "<h2 style='margin-bottom:0'>⚽ Pitch Log — 22-Player Goal Scene Viewer</h2>"
+        "<h2 style='margin-bottom:0'>⚽ Pitch Log — 22-Player Scene Viewer</h2>"
         "<p style='color:#8b949e;margin-top:2px;font-size:.85rem'>"
         "Phase 4 Extended | Home 11 + Away 11 + Ball | xT × Causal Analysis</p>",
         unsafe_allow_html=True,
