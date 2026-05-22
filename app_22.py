@@ -506,6 +506,65 @@ def render_import_wizard(xt_path: str, scene_path: str, match_info_path: str) ->
             "30秒への切り出しは次のステップで行います。"
         )
 
+        # ── データ取得先ガイド ────────────────────────────────────────────
+        with st.expander("📡 トラッキングデータの取得先", expanded=False):
+            st.markdown("""
+#### 🏆 SkillCorner（本番データ）
+契約クラブ・リーグのデータはこちらから入手します。
+
+| リンク | 内容 |
+|---|---|
+| [SkillCorner 公式サイト](https://www.skillcorner.com/) | サービス概要・お問い合わせ |
+| [SkillCorner Client Portal](https://platform.skillcorner.com/) | 試合データのダウンロード（要ログイン） |
+| [SkillCorner Open Data (GitHub)](https://github.com/SkillCorner/opendata) | 無償公開サンプルデータ（実際のリーグ試合データを含む） |
+| [SkillCorner API ドキュメント](https://skillcorner.com/blog/) | API連携を使う場合の参考情報 |
+
+---
+
+#### 📂 SkillCorner Open Data — すぐ試せるサンプル
+GitHubリポジトリに実際の試合データが公開されています。
+
+```
+https://github.com/SkillCorner/opendata
+```
+
+`data/` フォルダの中の `tracking_data.csv` または `tracking_data.json` を
+ダウンロードして使えます。
+
+> **注意**: SkillCorner のネイティブ形式（JSON）の場合は、
+> `convert_skillcorner_to_pipeline.py` で変換してからアップロードしてください。
+
+---
+
+#### 🔬 その他の公開データソース（形式変換が必要）
+
+| ソース | 内容 | リンク |
+|---|---|---|
+| **StatsBomb Open Data** | イベントデータ（座標付き） | [GitHub](https://github.com/statsbomb/open-data) |
+| **Metrica Sports** | トラッキングデータ（サンプル） | [GitHub](https://github.com/metrica-sports/sample-data) |
+| **Tracab / TRACAB** | 放送局向けトラッキング | 要契約 |
+| **Second Spectrum** | MLS等のトラッキング | 要契約 |
+
+> StatsBomb・Metrica のデータは座標形式が異なるため、
+> カラム名と正規化を合わせる変換スクリプトが別途必要です。
+
+---
+
+#### 📋 このアプリが期待するCSV形式
+
+```
+frame, time_sec, ball_x, ball_y, is_goal_frame,
+Home_1_x, Home_1_y, Home_2_x, Home_2_y, ..., Home_11_x, Home_11_y,
+Away_1_x, Away_1_y, ..., Away_11_x, Away_11_y
+```
+
+- 座標はすべて **0〜1 に正規化**（ピッチ左下原点）
+- Home チームは `x=1` 方向に攻撃
+- FPS は 10fps（SkillCorner 標準）を想定
+""")
+
+        st.divider()
+
         _src = st.radio("データソース", ["💾 ファイルアップロード", "🌐 URL指定"],
                         horizontal=True, key="wiz_src")
         _raw_bytes: bytes | None = None
