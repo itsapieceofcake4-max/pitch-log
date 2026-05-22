@@ -1417,6 +1417,186 @@ streamlit run app_22.py
         )
         st.divider()
 
+        # ── データ取り込み ─────────────────────────────────────────────────
+        st.markdown("### 📥 新シーン取り込み")
+        with st.expander("生トラッキングデータから変換", expanded=False):
+            st.caption(
+                "生のトラッキングCSVを読み込んでシーンCSVに変換します。\n"
+                "ファイルアップロードまたはURLで指定できます。"
+            )
+            _src_method = st.radio(
+                "データソース",
+                ["💾 ファイルアップロード", "🌐 URL指定"],
+                horizontal=True,
+                key="ingest_method",
+            )
+
+            _raw_bytes: bytes | None = None
+
+            if _src_method == "💾 ファイルアップロード":
+                _uploaded = st.file_uploader(
+                    "生トラッキングCSV",
+                    type=["csv"],
+                    help=(
+                        "必要なカラム:\n"
+                        "frame, time_sec, ball_x, ball_y, is_goal_frame,\n"
+                        "Home_1_x, Home_1_y … Away_11_x, Away_11_y\n"
+                        "（座標は 0〜1 に正規化）"
+                    ),
+                    key="ingest_upload",
+                )
+                if _uploaded is not None:
+                    _raw_bytes = _uploaded.getvalue()
+                    st.caption(f"✅ **{_uploaded.name}**  ({len(_raw_bytes)//1024} KB)")
+                    # Clear old URL-downloaded bytes when new file is uploaded
+                    st.session_state.pop("ingest_raw_bytes", None)
+
+            else:  # URL指定
+                _data_url = st.text_input(
+                    "CSV の URL",
+                    placeholder="https://example.com/tracking_data.csv",
+                    key="ingest_url",
+                )
+                if st.button("⬇️ ダウンロード", key="ingest_dl_btn", use_container_width=True):
+                    if _data_url:
+                        try:
+                            import urllib.request as _ur
+                            with st.spinner("ダウンロード中…"):
+                                req = _ur.Request(
+                                    _data_url,
+                                    headers={"User-Agent": "PitchLog/1.0"},
+                                )
+                                with _ur.urlopen(req, timeout=30) as _resp:
+                                    _dl = _resp.read()
+                            st.session_state["ingest_raw_bytes"] = _dl
+                            st.success(f"ダウンロード完了  ({len(_dl)//1024} KB)")
+                        except Exception as _e:
+                            st.error(f"ダウンロードエラー: {_e}")
+                    else:
+                        st.warning("URLを入力してください")
+
+                if "ingest_raw_bytes" in st.session_state:
+                    _raw_bytes = st.session_state["ingest_raw_bytes"]
+                    st.caption(f"✅ ダウンロード済  ({len(_raw_bytes)//1024} KB)")
+
+            st.divider()
+            # ── 試合メタ情報 ──────────────────────────────────────────────
+            _new_match_name  = st.text_input(
+                "試合名", placeholder="Brisbane Roar 0-1 Perth Glory",
+                key="ingest_mname",
+            )
+            _new_match_round = st.text_input(
+                "ラウンド", placeholder="Round 09 | A-League 2024-25",
+                key="ingest_mround",
+            )
+            _window_sec_new = st.slider(
+                "切り出し長（秒）", 5, 60, 30, step=5, key="ingest_window",
+                help="ゴールフレームから何秒前まで切り出すか",
+            )
+            _goal_sec_override = st.number_input(
+                "ゴール時刻を手動指定（秒）",
+                value=0.0, min_value=0.0, step=1.0, format="%.1f",
+                key="ingest_goal_sec",
+                help=(
+                    "0のままなら is_goal_frame 列 or 末尾フレームを自動検出。\n"
+                    "例: ゴールが30.0秒目なら 30"
+                ),
+            )
+
+            st.divider()
+
+            # ── 変換実行ボタン ────────────────────────────────────────────
+            _btn_disabled = (_raw_bytes is None)
+            if st.button(
+                "変換して読み込む 🔄",
+                type="primary",
+                use_container_width=True,
+                disabled=_btn_disabled,
+                key="ingest_convert_btn",
+            ):
+                try:
+                    import io as _io
+                    import importlib.util as _ilu
+
+                    # Load raw CSV
+                    _raw_df = pd.read_csv(_io.BytesIO(_raw_bytes))
+                    st.info(f"読み込み完了: **{len(_raw_df)} フレーム**  /  {len(_raw_df.columns)} カラム")
+
+                    # Load pipeline module dynamically
+                    _pipe_candidates = [
+                        Path(__file__).parent / "xt_pipeline_22.py",
+                        Path(scene_path).parent / "xt_pipeline_22.py",
+                    ]
+                    _pipe_path = next((p for p in _pipe_candidates if p.exists()), None)
+                    if _pipe_path is None:
+                        st.error("xt_pipeline_22.py が見つかりません。アプリと同じフォルダに置いてください。")
+                        st.stop()
+
+                    _spec = _ilu.spec_from_file_location("_pipe", _pipe_path)
+                    _pipe = _ilu.module_from_spec(_spec)
+                    _spec.loader.exec_module(_pipe)
+
+                    with st.spinner("xT計算・LBP検出中…"):
+                        # Detect FPS
+                        _dt_ser = pd.to_numeric(
+                            _raw_df["time_sec"] if "time_sec" in _raw_df.columns else pd.Series([0.1]),
+                            errors="coerce",
+                        ).diff().dropna()
+                        _raw_fps_v = int(round(1.0 / _dt_ser.median())) if len(_dt_ser) > 0 and _dt_ser.median() > 0 else 10
+
+                        # Find goal frame
+                        if _goal_sec_override > 0:
+                            _goal_f = min(int(_goal_sec_override * _raw_fps_v), len(_raw_df) - 1)
+                        elif "is_goal_frame" in _raw_df.columns and (_raw_df["is_goal_frame"] == 1).any():
+                            _goal_f = int(_raw_df.index[_raw_df["is_goal_frame"] == 1].tolist()[-1])
+                        else:
+                            _goal_f = len(_raw_df) - 1
+
+                        # Window slice
+                        _win_n    = _window_sec_new * _raw_fps_v
+                        _start_f  = max(0, _goal_f - _win_n + 1)
+                        _xt_arr   = _pipe.load_xt_map(xt_path)
+                        _enr      = _pipe.assign_grid_and_xt_22(_raw_df, _xt_arr)
+                        _win      = _enr.iloc[int(_start_f): _goal_f + 1].reset_index(drop=True)
+                        _ws       = float(_raw_df.iloc[int(_start_f)]["time_sec"]) if "time_sec" in _raw_df.columns else 0.0
+                        _we       = float(_raw_df.iloc[_goal_f]["time_sec"])        if "time_sec" in _raw_df.columns else _ws + _window_sec_new
+                        _res      = _pipe.reformat_to_22player_schema(_win, _raw_fps_v, _ws)
+                        _res      = _pipe.add_zone_and_lbp_columns(_res, _raw_fps_v)
+                        _res.to_csv(scene_path, index=False)
+
+                        # Write match_info.json
+                        _meta = {
+                            "match_name":       _new_match_name  or "Unknown Match",
+                            "match_round":      _new_match_round or "",
+                            "goal_frame_raw":   _goal_f,
+                            "goal_time_sec":    round(_we, 3),
+                            "window_start_sec": round(_ws, 3),
+                            "window_end_sec":   round(_we, 3),
+                            "window_sec":       _window_sec_new,
+                            "window_frames":    len(_win),
+                            "fps":              _raw_fps_v,
+                            "output_csv":       scene_path,
+                        }
+                        with open(match_info_path, "w", encoding="utf-8") as _mf:
+                            json.dump(_meta, _mf, indent=2, ensure_ascii=False)
+
+                    st.success(
+                        f"✅ 変換完了！  "
+                        f"{len(_win)} フレーム（{_window_sec_new}秒 / {_raw_fps_v} fps）"
+                    )
+                    st.session_state.pop("ingest_raw_bytes", None)
+                    st.rerun()
+
+                except Exception as _e:
+                    import traceback as _tb
+                    st.error(f"変換エラー: {_e}")
+                    st.code(_tb.format_exc(), language="python")
+
+            if _btn_disabled:
+                st.caption("⬆️ CSVを読み込むと変換ボタンが有効になります")
+
+        st.divider()
+
         st.markdown("### 表示オプション")
         show_xt      = st.toggle("xTヒートマップ",   value=True)
         xt_side = st.radio(
