@@ -1688,10 +1688,37 @@ streamlit run app_23.py
         f_start, f_end = frame_range
         n_export = f_end - f_start + 1
         st.caption(f"**{n_export}** フレーム / **{n_export/fps:.1f}** 秒")
-        exp_df  = df.iloc[f_start-1:f_end].copy().reset_index(drop=True)
+
+        gsa_extend = st.checkbox(
+            "🔬 GSA推奨カラムを追加する",
+            value=True,
+            help=(
+                "下記カラムを自動追加します:\n"
+                "・Delta_Ball_xT / Delta_Away_MAX_xT 等（目的変数候補）\n"
+                "・各選手とボールの距離（22カラム）\n"
+                "・各選手の速度（22カラム）\n"
+                "※ X, Y, GridID は xT と重複するので GSA 側で除外推奨"
+            ),
+        )
+
+        exp_df = df.iloc[f_start-1:f_end].copy().reset_index(drop=True)
         exp_df["Frame"] = range(1, len(exp_df) + 1)
+
+        if gsa_extend:
+            try:
+                _p23_path = Path(__file__).parent / "xt_pipeline_23.py"
+                _spec23 = _ilu.spec_from_file_location("_pipe23_gsa", _p23_path)
+                _pipe23 = _ilu.module_from_spec(_spec23)
+                _spec23.loader.exec_module(_pipe23)
+                exp_df = _pipe23.add_gsa_features(exp_df, fps=fps)
+                st.caption(f"✅ GSA拡張: **{len(exp_df.columns)}** カラム "
+                           f"（Delta系 + dist_ball + speed 追加）")
+            except Exception as _e:
+                st.warning(f"GSA拡張エラー: {_e}")
+
         csv_b = exp_df.to_csv(index=False).encode("utf-8")
-        fname = f"GSA_export_F{f_start:04d}-{f_end:04d}_{n_export}frames_{n_export/fps:.0f}s.csv"
+        suffix = "_gsa_ext" if gsa_extend else ""
+        fname  = f"GSA_export_F{f_start:04d}-{f_end:04d}_{n_export}frames_{n_export/fps:.0f}s{suffix}.csv"
         st.download_button("📥 CSVをダウンロード", data=csv_b, file_name=fname,
                            mime="text/csv", use_container_width=True)
 

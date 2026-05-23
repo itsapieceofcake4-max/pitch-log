@@ -337,6 +337,106 @@ def compute_player_contributions(
     return result
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# GSA feature extension
+# ══════════════════════════════════════════════════════════════════════════════
+
+PITCH_W_M = 105.0   # pitch width in meters
+PITCH_H_M = 68.0    # pitch height in meters
+
+
+def add_gsa_features(df: pd.DataFrame, fps: float = 10.0) -> pd.DataFrame:
+    """
+    Add GSA-recommended feature columns to a 22-player scene CSV.
+
+    Added columns (per frame)
+    -------------------------
+    Delta_Ball_xT, Delta_Home_MAX_xT, Delta_Away_MAX_xT,
+    Delta_Home_SUM_xT, Delta_Away_SUM_xT   (target variable candidates)
+
+    {team}_P{n}_dist_ball   : distance from player to ball in METERS
+    {team}_P{n}_speed       : player's instantaneous speed in m/s
+
+    Properties
+    ----------
+    - Non-destructive: existing columns are never modified.
+    - Idempotent     : if Delta_Ball_xT exists, returns df unchanged.
+    - Backward-compat: v22 readers ignore extra columns.
+
+    Recommended GSA usage
+    ---------------------
+    Target variable (Y) :
+        Delta_Ball_xT       (most direct measure of "value-creating action")
+      or Delta_Away_MAX_xT  (team-level threat surge)
+      or Away_MAX_xT        (current target — positional level)
+
+    Feature variables (X) :
+        Each player's xT
+        Each player's dist_ball
+        Each player's speed
+      (Do NOT include X, Y, GridID — they are redundant with xT)
+    """
+    if "Delta_Ball_xT" in df.columns:
+        return df   # already extended
+
+    out = df.copy()
+
+    # ── Delta time-series (target variable candidates) ─────────────────────────
+    for col in ["Ball_xT", "Home_MAX_xT", "Away_MAX_xT",
+                "Home_SUM_xT", "Away_SUM_xT"]:
+        if col in out.columns:
+            out[f"Delta_{col}"] = pd.to_numeric(out[col], errors="coerce").diff().fillna(0).round(5)
+
+    # ── Detect team player numbers ─────────────────────────────────────────────
+    def _nums(team: str) -> list[int]:
+        nums = []
+        import re as _re
+        for c in out.columns:
+            m = _re.match(rf"^{team}_P(\d+)_X$", c)
+            if m and f"{team}_P{m.group(1)}_Y" in out.columns:
+                nums.append(int(m.group(1)))
+        return sorted(nums)
+
+    h_nums = _nums("Home")
+    a_nums = _nums("Away")
+
+    if "Ball_X" not in out.columns or "Ball_Y" not in out.columns:
+        return out   # not a 22-player scene CSV
+
+    bx = pd.to_numeric(out["Ball_X"], errors="coerce")
+    by = pd.to_numeric(out["Ball_Y"], errors="coerce")
+
+    # ── Per-player distance-to-ball (meters) & speed (m/s) ────────────────────
+    for team, nums in [("Home", h_nums), ("Away", a_nums)]:
+        for n in nums:
+            px = pd.to_numeric(out[f"{team}_P{n}_X"], errors="coerce")
+            py = pd.to_numeric(out[f"{team}_P{n}_Y"], errors="coerce")
+
+            # distance to ball (m)
+            dx_m = (px - bx) * PITCH_W_M
+            dy_m = (py - by) * PITCH_H_M
+            out[f"{team}_P{n}_dist_ball"] = np.sqrt(dx_m**2 + dy_m**2).round(3)
+
+            # speed (m/s) — based on per-frame position delta × fps
+            vx_m = px.diff() * PITCH_W_M
+            vy_m = py.diff() * PITCH_H_M
+            out[f"{team}_P{n}_speed"] = (
+                np.sqrt(vx_m**2 + vy_m**2) * fps
+            ).fillna(0.0).round(3)
+
+    return out
+
+
+def detect_fps_from_scene(df: pd.DataFrame) -> float:
+    """Infer playback FPS from the Time column of a scene CSV. Defaults to 10.0."""
+    if "Time" not in df.columns or len(df) < 2:
+        return 10.0
+    dt = pd.to_numeric(df["Time"], errors="coerce").diff().dropna().median()
+    if dt and dt > 0:
+        return float(round(1.0 / dt))
+    return 10.0
+
+
 # ── CLI entry point ────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
@@ -350,7 +450,40 @@ if __name__ == "__main__":
                         help="Override raw frame start (default: derived from match_info)")
     parser.add_argument("--frame_end",    type=int, default=None,
                         help="Override raw frame end   (default: derived from match_info)")
+    parser.add_argument("--gsa_extend",   type=str, default=None,
+                        help="Path to a scene CSV. Adds GSA feature columns and writes "
+                             "_gsa_extended.csv (skips VAEP computation).")
+    parser.add_argument("--fps",          type=float, default=10.0,
+                        help="FPS for GSA speed calculation (only used with --gsa_extend)")
     args = parser.parse_args()
+
+    # ── GSA extension-only mode ────────────────────────────────────────────────
+    if args.gsa_extend:
+        src = Path(args.gsa_extend)
+        if not src.exists():
+            sys.exit(f"ERROR: {src} not found.")
+
+        print("=" * 60)
+        print("  Pitch Log v23 - GSA Feature Extension")
+        print("=" * 60)
+        print(f"\n[Load] {src}")
+        scene_df = pd.read_csv(src)
+        print(f"       {len(scene_df)} rows  |  {len(scene_df.columns)} columns (input)")
+
+        fps_use = args.fps if args.fps else detect_fps_from_scene(scene_df)
+        print(f"\n[FPS]  {fps_use}")
+
+        print("\n[Compute] Delta time-series + dist_ball + speed ...")
+        ext_df = add_gsa_features(scene_df, fps=fps_use)
+        n_added = len(ext_df.columns) - len(scene_df.columns)
+        print(f"          Added {n_added} columns "
+              f"({len(scene_df.columns)} -> {len(ext_df.columns)})")
+
+        out_path = src.with_name(src.stem + "_gsa_extended.csv")
+        ext_df.to_csv(out_path, index=False, encoding="utf-8")
+        print(f"\n[Save] -> {out_path}")
+        print("\n  Done.")
+        sys.exit(0)
 
     print("=" * 60)
     print("  Pitch Log v23 - Player Contribution Pipeline")
