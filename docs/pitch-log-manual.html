@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pitch Log — 取扱説明書 v22 / v23</title>
+<style>
+  /* ── リセット & ベース ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:      #0e1825;
+    --surface: #1a2e42;
+    --border:  #234060;
+    --home:    #3b9eff;
+    --away:    #ff5555;
+    --ball:    #FFD700;
+    --green:   #4ade80;
+    --text:    #dde8f4;
+    --muted:   #7095b5;
+    --accent:  #5ec4ff;
+    --purple:  #a78bfa;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Segoe UI", sans-serif;
+    font-size: 15px;
+    line-height: 1.75;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+  }
+
+  /* ── タイポグラフィ ── */
+  h1 { font-size: 2rem; font-weight: 800; color: #fff; margin-bottom: .3em; }
+  h2 { font-size: 1.35rem; font-weight: 700; color: var(--accent);
+       border-left: 4px solid var(--accent); padding-left: .75em;
+       margin: 2.5rem 0 1rem; }
+  h3 { font-size: 1.1rem; font-weight: 700; color: #fff; margin: 1.6rem 0 .6rem; }
+  h4 { font-size: .95rem; font-weight: 700; color: var(--muted);
+       text-transform: uppercase; letter-spacing: .07em; margin: 1.2rem 0 .4rem; }
+  p  { margin-bottom: .8em; color: #c0d4e8; }
+  a  { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  strong { color: #fff; }
+
+  /* ── カバー ── */
+  .cover {
+    background: linear-gradient(135deg, #0d2137 0%, #0e1825 60%, #132030 100%);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 3rem 2.5rem 2.5rem;
+    margin-bottom: 2.5rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .cover::before {
+    content: "⚽";
+    position: absolute;
+    right: 2rem; top: 1.5rem;
+    font-size: 5rem;
+    opacity: .08;
+  }
+  .cover .sub {
+    color: var(--muted);
+    font-size: .9rem;
+    margin-top: .5em;
+  }
+  .version-badges { display: flex; gap: .6rem; margin-top: 1.2rem; flex-wrap: wrap; }
+  .badge {
+    display: inline-block;
+    padding: .25em .9em;
+    border-radius: 99px;
+    font-size: .78rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+  }
+  .badge-v22 { background: #1a3a5c; color: var(--home); border: 1px solid var(--home); }
+  .badge-v23 { background: #1a3a28; color: var(--green); border: 1px solid var(--green); }
+  .badge-new { background: #3a1a3a; color: var(--purple); border: 1px solid var(--purple); }
+
+  /* ── TOC ── */
+  .toc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.2rem 1.5rem;
+    margin-bottom: 2.5rem;
+  }
+  .toc h4 { margin-top: 0; }
+  .toc ol { padding-left: 1.4em; }
+  .toc li { margin: .35em 0; color: var(--accent); font-size: .9rem; }
+  .toc li a { color: var(--accent); }
+
+  /* ── カード ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.4rem 1.6rem;
+    margin-bottom: 1.2rem;
+  }
+  .card.highlight { border-color: var(--accent); }
+  .card.home { border-color: var(--home); }
+  .card.away { border-color: var(--away); }
+  .card.green { border-color: var(--green); }
+
+  /* ── テーブル ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: .8rem 0 1.2rem;
+    font-size: .9rem;
+  }
+  th {
+    background: #0f2540;
+    color: var(--accent);
+    font-weight: 700;
+    text-align: left;
+    padding: .55em .9em;
+    border-bottom: 2px solid var(--border);
+  }
+  td {
+    padding: .5em .9em;
+    border-bottom: 1px solid #1e3348;
+    color: #c0d4e8;
+    vertical-align: top;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,.03); }
+  td:first-child { font-weight: 600; color: #dde8f4; }
+
+  /* ── コードブロック ── */
+  pre {
+    background: #091422;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.2rem;
+    overflow-x: auto;
+    font-size: .85rem;
+    line-height: 1.65;
+    margin: .8rem 0 1.2rem;
+  }
+  code {
+    font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
+    color: var(--accent);
+  }
+  pre code { color: #c0d4e8; }
+  .kw  { color: #ff79c6; }
+  .cm  { color: #6272a4; }
+  .str { color: #f1fa8c; }
+  .num { color: #bd93f9; }
+
+  /* ── インライン code ── */
+  p code, li code, td code {
+    background: #091422;
+    color: var(--accent);
+    padding: .1em .4em;
+    border-radius: 4px;
+    font-size: .85em;
+  }
+
+  /* ── ステップ ── */
+  .steps { counter-reset: step; }
+  .step {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+    counter-increment: step;
+  }
+  .step-num {
+    flex-shrink: 0;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #0e1825;
+    font-weight: 800;
+    font-size: .9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .step-body { flex: 1; }
+  .step-body strong { display: block; margin-bottom: .25em; color: #fff; }
+
+  /* ── フロー図（文字） ── */
+  .flow {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    flex-wrap: wrap;
+    margin: .8rem 0;
+    font-size: .88rem;
+  }
+  .flow-box {
+    background: #0f2540;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: .35em .8em;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .flow-arrow { color: var(--muted); font-size: 1.1rem; }
+
+  /* ── チップ ── */
+  .chip {
+    display: inline-block;
+    padding: .18em .7em;
+    border-radius: 99px;
+    font-size: .78rem;
+    font-weight: 700;
+  }
+  .chip-home   { background: rgba(59,158,255,.18); color: var(--home); }
+  .chip-away   { background: rgba(255,85,85,.18);  color: var(--away); }
+  .chip-ball   { background: rgba(255,215,0,.18);  color: var(--ball); }
+  .chip-new    { background: rgba(74,222,128,.18); color: var(--green); }
+  .chip-warn   { background: rgba(251,191,36,.18); color: #fbbf24; }
+
+  /* ── 指標カード ── */
+  .metric-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: .8rem;
+    margin: .8rem 0 1.2rem;
+  }
+  .metric-card {
+    background: #0f2540;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: .9rem 1rem;
+  }
+  .metric-card .label {
+    font-size: .72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    color: var(--muted);
+    margin-bottom: .3em;
+  }
+  .metric-card .value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .metric-card .desc {
+    font-size: .78rem;
+    color: var(--muted);
+    margin-top: .25em;
+  }
+
+  /* ── 注意・情報ボックス ── */
+  .info-box {
+    border-left: 4px solid var(--accent);
+    background: #0f2540;
+    border-radius: 0 8px 8px 0;
+    padding: .9rem 1.1rem;
+    margin: .8rem 0 1.2rem;
+    font-size: .9rem;
+    color: #93bfe0;
+  }
+  .warn-box {
+    border-left: 4px solid #fbbf24;
+    background: #1f1a00;
+    border-radius: 0 8px 8px 0;
+    padding: .9rem 1.1rem;
+    margin: .8rem 0 1.2rem;
+    font-size: .9rem;
+    color: #e8d48f;
+  }
+
+  /* ── セパレータ ── */
+  hr { border: none; border-top: 1px solid var(--border); margin: 2.5rem 0; }
+
+  /* ── バーチャート（CSS） ── */
+  .bar-row {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    margin: .35rem 0;
+    font-size: .85rem;
+  }
+  .bar-name { width: 140px; flex-shrink: 0; color: #c0d4e8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar-track { flex: 1; height: 18px; background: #0f2540; border-radius: 4px; overflow: hidden; display: flex; }
+  .bar-fill-home { height: 100%; background: rgba(59,158,255,.75); border-radius: 4px; }
+  .bar-fill-away { height: 100%; background: rgba(255,85,85,.75); border-radius: 4px; }
+  .bar-fill-atk  { height: 100%; background: rgba(59,158,255,.75); }
+  .bar-fill-def  { height: 100%; background: rgba(74,222,128,.75); }
+  .bar-fill-run  { height: 100%; background: rgba(255,215,0,.65); }
+  .bar-val { width: 54px; text-align: right; color: var(--muted); flex-shrink: 0; }
+
+  /* ── 印刷 ── */
+  @media print {
+    body { background: #fff; color: #111; max-width: 100%; font-size: 11pt; }
+    .cover { background: #f0f4f8; border-color: #ccc; }
+    .cover::before { display: none; }
+    h1, h2, h3, h4, strong { color: #111 !important; }
+    h2 { border-left-color: #0066cc; color: #0066cc !important; }
+    p, td, li { color: #333 !important; }
+    pre, .card, .toc, .metric-card, .info-box, .warn-box {
+      background: #f8f9fa !important;
+      border-color: #ccc !important;
+    }
+    code { background: #f0f0f0 !important; color: #003080 !important; }
+    pre code { color: #222 !important; }
+    .badge-v22, .badge-v23, .badge-new { border-color: #999; color: #333 !important; background: #eee !important; }
+    .chip-home, .chip-away, .chip-ball, .chip-new, .chip-warn {
+      background: #eee !important; color: #333 !important;
+    }
+    .flow-box { background: #eee !important; color: #003080 !important; border-color: #ccc !important; }
+    a { color: #0066cc; }
+    th { background: #e0e8f0 !important; color: #003080 !important; }
+    td { border-color: #ccc !important; color: #333 !important; }
+    td:first-child { color: #111 !important; }
+    .bar-fill-home { background: #3b9eff; }
+    .bar-fill-away { background: #ff5555; }
+    .bar-fill-atk  { background: #3b9eff; }
+    .bar-fill-def  { background: #4ade80; }
+    .bar-fill-run  { background: #FFD700; }
+    .bar-track { background: #e8e8e8; }
+    .bar-name, .bar-val { color: #333; }
+    .metric-card .label { color: #666; }
+    .metric-card .value { color: #003080; }
+    .metric-card .desc  { color: #666; }
+    .step-num { background: #003080; color: #fff; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════ COVER ═══════════════════════════════ -->
+<div class="cover">
+  <h1>⚽ Pitch Log</h1>
+  <p class="sub">22-Player Scene Viewer × VAEP × Off-ball × Defensive Analysis</p>
+  <p class="sub">取扱説明書 — 操作リファレンス</p>
+  <div class="version-badges">
+    <span class="badge badge-v22">v22 — xT ビジュアライザ</span>
+    <span class="badge badge-v23">v23 — VAEP 貢献度分析</span>
+    <span class="badge badge-new">NEW: オフボール / 守備評価</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ TOC ════════════════════════════════ -->
+<div class="toc">
+  <h4>📋 目次</h4>
+  <ol>
+    <li><a href="#overview">システム概要</a></li>
+    <li><a href="#files">必要なファイル一覧</a></li>
+    <li><a href="#flow">データフロー</a></li>
+    <li><a href="#launch">起動方法</a></li>
+    <li><a href="#v22">v22 の使い方（xT ビジュアライザ）</a></li>
+    <li><a href="#v23">v23 の使い方（VAEP 分析パネル追加）</a></li>
+    <li><a href="#metrics">指標の意味と読み方</a></li>
+    <li><a href="#example">実データ例：Brisbane 0-1 Perth</a></li>
+    <li><a href="#faq">よくある質問</a></li>
+  </ol>
+</div>
+
+
+<!-- ═══════════════════════════════ 1. 概要 ══════════════════════════════ -->
+<h2 id="overview">1. システム概要</h2>
+
+<p>
+  <strong>Pitch Log</strong> は、SkillCorner トラッキングデータを使って
+  サッカーの特定シーン（30秒程度）を可視化・評価するウェブアプリです。<br>
+  ブラウザ上でアニメーション再生・xT ヒートマップ・プレーヤー貢献度をひとつの画面で確認できます。
+</p>
+
+<div class="metric-grid">
+  <div class="metric-card">
+    <div class="label">v22 の主機能</div>
+    <div class="value">xT</div>
+    <div class="desc">22選手のボール位置的脅威をアニメーション表示</div>
+  </div>
+  <div class="metric-card">
+    <div class="label">v23 追加機能</div>
+    <div class="value">VAEP</div>
+    <div class="desc">攻撃 / 守備 / オフボールを数値で選手評価</div>
+  </div>
+  <div class="metric-card">
+    <div class="label">対象シーン</div>
+    <div class="value">30秒</div>
+    <div class="desc">ゴール・ビルドアップ・プレッシング等、任意に切り出し可能</div>
+  </div>
+  <div class="metric-card">
+    <div class="label">データソース</div>
+    <div class="value">SkillCorner</div>
+    <div class="desc">10fps トラッキング + dynamic_events.csv</div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════ 2. ファイル ══════════════════════════ -->
+<h2 id="files">2. 必要なファイル一覧</h2>
+
+<table>
+  <tr>
+    <th>ファイル名</th>
+    <th>v22</th>
+    <th>v23</th>
+    <th>説明</th>
+  </tr>
+  <tr>
+    <td><code>xT_BaseMap_105x68.csv</code></td>
+    <td>✅ 必須</td>
+    <td>✅ 必須</td>
+    <td>xT グリッドマップ（105×68 セル）。一度生成したら使い回し可。</td>
+  </tr>
+  <tr>
+    <td><code>Export_GSA_22players_30s.csv</code></td>
+    <td>✅ 必須</td>
+    <td>✅ 必須</td>
+    <td>22選手+ボールの座標・GridID・xT が入ったシーン CSV。パイプラインが生成。</td>
+  </tr>
+  <tr>
+    <td><code>match_info.json</code></td>
+    <td>任意</td>
+    <td>✅ 必須</td>
+    <td>試合名・フレーム範囲など。パイプライン実行時に自動生成される。</td>
+  </tr>
+  <tr>
+    <td><code>1925299_dynamic_events.csv</code></td>
+    <td>❌ 不要</td>
+    <td>✅ 必須</td>
+    <td>SkillCorner の動的イベントデータ。VAEP 計算に使用。</td>
+  </tr>
+  <tr>
+    <td><code>player_contributions_23.csv</code></td>
+    <td>❌ なし</td>
+    <td>自動生成</td>
+    <td>v23 パイプラインが生成する選手別貢献度スコア。</td>
+  </tr>
+  <tr>
+    <td><code>xt_pipeline_22.py</code></td>
+    <td>✅ 必須</td>
+    <td>✅ 必須</td>
+    <td>xT 計算・シーン切り出しパイプライン。</td>
+  </tr>
+  <tr>
+    <td><code>xt_pipeline_23.py</code></td>
+    <td>❌ 不要</td>
+    <td>✅ 必須</td>
+    <td>VAEP・オフボール・守備指標の計算パイプライン（新規）。</td>
+  </tr>
+</table>
+
+<div class="info-box">
+  💡 すべてのファイルを <strong>同じフォルダ</strong> に置いてください。<br>
+  Streamlit Cloud の場合は GitHub リポジトリのルートに配置します。
+</div>
+
+
+<!-- ═══════════════════════════════ 3. フロー ═════════════════════════════ -->
+<h2 id="flow">3. データフロー</h2>
+
+<h3>v22 のフロー</h3>
+<div class="flow">
+  <div class="flow-box">SkillCorner<br>生データ</div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-box">convert_skillcorner<br>_to_pipeline.py</div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-box">トラッキング CSV<br>(全試合)</div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-box">xt_pipeline_22.py</div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-box">シーン CSV<br>+ match_info.json</div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-box"><strong>app_22.py</strong></div>
+</div>
+
+<h3>v23 のフロー（追加分）</h3>
+<div class="flow">
+  <div class="flow-box">dynamic_events<br>.csv</div>
+  <span class="flow-arrow">+</span>
+  <div class="flow-box">match_info.json</div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-box">xt_pipeline_23.py<br><em style="font-size:.8em;color:#7095b5">（またはアプリ内）</em></div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-box">player_contributions<br>_23.csv</div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-box"><strong>app_23.py</strong></div>
+</div>
+
+<div class="info-box">
+  v23 は v22 のシーン CSV をそのまま引き継ぎます。<br>
+  トラッキングデータの再変換は不要です。
+</div>
+
+
+<!-- ═══════════════════════════════ 4. 起動 ═══════════════════════════════ -->
+<h2 id="launch">4. 起動方法</h2>
+
+<h3>ローカル環境</h3>
+<pre><code><span class="cm"># v22 を起動</span>
+streamlit run app_22.py
+
+<span class="cm"># v23 を起動（別ウィンドウ or ポート 8502）</span>
+streamlit run app_23.py</code></pre>
+
+<h3>Streamlit Cloud</h3>
+
+<div class="steps">
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <strong>ファイルを GitHub にプッシュ</strong>
+      新しいファイル（<code>app_23.py</code>、<code>xt_pipeline_23.py</code>）をリポジトリに追加する。
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <strong><a href="https://share.streamlit.io" target="_blank">share.streamlit.io</a> で「New app」をクリック</strong>
+      v22 の URL はそのまま維持されます。
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <strong>以下のように設定してデプロイ</strong>
+      <table style="margin-top:.5em">
+        <tr><th>項目</th><th>設定値</th></tr>
+        <tr><td>Repository</td><td><code>itsapieceofcake4-max/pitch-log</code></td></tr>
+        <tr><td>Branch</td><td><code>main</code></td></tr>
+        <tr><td>Main file path（v22）</td><td><code>app_22.py</code></td></tr>
+        <tr><td>Main file path（v23）</td><td><code>app_23.py</code></td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="warn-box">
+  ⚠️ v22 と v23 は <strong>別々のデプロイ</strong>として登録します。<br>
+  同じデプロイで Main file を変えると v22 の URL が上書きされます。
+</div>
+
+
+<!-- ═══════════════════════════════ 5. v22 ════════════════════════════════ -->
+<h2 id="v22">5. v22 の使い方</h2>
+
+<h3>画面構成</h3>
+
+<table>
+  <tr><th>エリア</th><th>内容</th></tr>
+  <tr><td>サイドバー（左）</td><td>ファイルパス指定・表示設定・取り込みウィザード</td></tr>
+  <tr><td>左パネル（大）</td><td>ピッチアニメーション</td></tr>
+  <tr><td>右パネル（小）</td><td>xT タイムライン・貢献度パネル</td></tr>
+  <tr><td>画面下部</td><td>フレームデータ詳細テーブル</td></tr>
+</table>
+
+<h3>サイドバー設定一覧</h3>
+
+<table>
+  <tr><th>設定項目</th><th>初期値</th><th>説明</th></tr>
+  <tr><td>xTベースマップ CSV</td><td><code>xT_BaseMap_105x68.csv</code></td><td>xT グリッドのパス</td></tr>
+  <tr><td>シーン CSV</td><td><code>Export_GSA_22players_30s.csv</code></td><td>表示するシーンデータ</td></tr>
+  <tr><td>試合情報 JSON</td><td><code>match_info.json</code></td><td>試合名・時刻表示用</td></tr>
+  <tr><td>試合時刻オフセット（秒）</td><td>0</td><td>例: 後半74分のシーンなら <code>2700</code> を入力</td></tr>
+  <tr><td>xT ヒートマップ表示</td><td>ON</td><td>ピッチ背景に xT 濃淡を表示</td></tr>
+  <tr><td>xTマップ視点</td><td>Home</td><td>Home / Away / 両方。Away は色が青→紫系に変わる</td></tr>
+  <tr><td>軌跡フレーム数</td><td>10</td><td>ボール・選手の軌跡の長さ（フレーム数）</td></tr>
+  <tr><td>Home / Away 選手を表示</td><td>両方 ON</td><td>片方を OFF にすると相手チームだけ見やすくなる</td></tr>
+  <tr><td>解析モード</td><td>通常モード</td><td>「ゾーン別」にするとラインブレイクパス（縦パス）を自動検出・強調</td></tr>
+</table>
+
+<h3>ピッチアニメーションの操作</h3>
+
+<table>
+  <tr><th>ボタン</th><th>動作</th></tr>
+  <tr><td><strong>▶</strong></td><td>標準速度で再生</td></tr>
+  <tr><td><strong>⏸</strong></td><td>一時停止</td></tr>
+  <tr><td><strong>×0.5</strong></td><td>スロー再生</td></tr>
+  <tr><td><strong>×2 / ×4</strong></td><td>高速再生</td></tr>
+  <tr><td><strong>⏮</strong></td><td>先頭フレームに戻る</td></tr>
+  <tr><td>スライダー</td><td>任意フレームに直接ジャンプ</td></tr>
+</table>
+
+<h3>新しいシーンを取り込む（インポートウィザード）</h3>
+
+<p>サイドバーの <strong>「📥 新しいシーンを取り込む」</strong> ボタンから起動します。</p>
+
+<div class="steps">
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <strong>① データ読み込み</strong>
+      試合全体のトラッキング CSV をアップロード、または URL を指定してダウンロード。
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <strong>② シーン特定</strong>
+      ボール軌跡グラフを見ながら開始・終了時刻を <code>M:SS</code> 形式で入力。ピッチプレビューで確認。
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <strong>③ シーン情報</strong>
+      シーンタイプ（ゴール / ビルドアップ / プレッシング等）・試合名・ラウンドを入力。
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <strong>④ 変換・保存</strong>
+      「変換して読み込む」をクリック。xT 計算・LBP 検出が自動実行され、シーン CSV が上書き保存される。
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════ 6. v23 ════════════════════════════════ -->
+<h2 id="v23">6. v23 の使い方</h2>
+
+<p>
+  v23 は v22 のすべての機能に加えて、画面下部に
+  <strong>「📊 v23 プレーヤー貢献度分析」</strong>パネルが追加されます。
+</p>
+
+<h3>事前準備：貢献度を計算する</h3>
+
+<p>VAEP 分析を表示するには、<strong>選手貢献度データ</strong>が必要です。<br>
+  方法は2つあります。</p>
+
+<h4>方法 A ― アプリ内で計算（推奨）</h4>
+
+<div class="steps">
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <strong>サイドバー下部「🔬 v23 VAEP 分析」を開く</strong>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <strong>ファイルパスを確認・入力</strong>
+      <ul style="margin-top:.4em;padding-left:1.2em;color:#c0d4e8">
+        <li><code>dynamic_events CSV</code>：SkillCorner の dynamic_events.csv</li>
+        <li><code>選手貢献度 CSV</code>：出力先（初期値のままでOK）</li>
+      </ul>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <strong>「🔄 貢献度を計算する」を展開 → 「⚙️ 貢献度を計算する」をクリック</strong>
+      match_info.json のフレーム範囲で自動的にイベントを絞り込み、計算が完了したら画面が更新されます。
+    </div>
+  </div>
+</div>
+
+<h4>方法 B ― コマンドラインで計算</h4>
+
+<pre><code>python xt_pipeline_23.py \
+    --events 1925299_dynamic_events.csv \
+    --match_info match_info.json \
+    --output player_contributions_23.csv \
+    --home_team_id 1802 \
+    --away_team_id 871</code></pre>
+
+<p>実行後、<code>player_contributions_23.csv</code> が生成されます。アプリをリロードすると自動で読み込まれます。</p>
+
+<div class="info-box">
+  💡 別のシーン（試合・時間帯）に切り替えた場合は、貢献度の再計算が必要です。<br>
+  「⚙️ 貢献度を計算する」ボタンを再度押してください。
+</div>
+
+<h3>v23 分析パネルの見方</h3>
+
+<h4>① トップ指標（5カード）</h4>
+<div class="metric-grid">
+  <div class="metric-card">
+    <div class="label">Top VAEP 選手</div>
+    <div class="value" style="font-size:1rem">J. Risdon</div>
+    <div class="desc">シーン内で最も高い総合スコアの選手</div>
+  </div>
+  <div class="metric-card">
+    <div class="label">vaep_total</div>
+    <div class="value">+0.146</div>
+    <div class="desc">攻撃 + 守備 + オフボールの総合</div>
+  </div>
+  <div class="metric-card">
+    <div class="label">Attack VAEP</div>
+    <div class="value">+0.209</div>
+    <div class="desc">ボール保持中の攻撃価値創出</div>
+  </div>
+  <div class="metric-card">
+    <div class="label">Defensive VAEP</div>
+    <div class="value">−0.063</div>
+    <div class="desc">守備時の攻撃阻止貢献</div>
+  </div>
+  <div class="metric-card">
+    <div class="label">Off-ball xT</div>
+    <div class="value">0.0000</div>
+    <div class="desc">オフボールランによる位置的脅威</div>
+  </div>
+</div>
+
+<h4>② VAEP 横棒グラフ</h4>
+
+<p>全選手を <code>vaep_total</code> 降順で並べた横棒グラフ。</p>
+
+<div class="card">
+  <div style="font-size:.82rem;color:var(--muted);margin-bottom:.7rem">
+    <span style="color:var(--home)">■</span> Attack VAEP &nbsp;
+    <span style="color:var(--green)">■</span> Defensive VAEP &nbsp;
+    <span style="color:var(--ball)">■</span> Off-ball xT (×0.1)
+  </div>
+  <div class="bar-row">
+    <span class="bar-name">J. Risdon (Away)</span>
+    <div class="bar-track">
+      <div class="bar-fill-atk" style="width:42%"></div>
+      <div class="bar-fill-def" style="width:0%"></div>
+    </div>
+    <span class="bar-val">+0.146</span>
+  </div>
+  <div class="bar-row">
+    <span class="bar-name">K. Jelacic (Home)</span>
+    <div class="bar-track">
+      <div class="bar-fill-atk" style="width:36%"></div>
+      <div class="bar-fill-run" style="width:2%"></div>
+    </div>
+    <span class="bar-val">+0.126</span>
+  </div>
+  <div class="bar-row">
+    <span class="bar-name">T. Ostler (Away)</span>
+    <div class="bar-track">
+      <div class="bar-fill-def" style="width:35%"></div>
+    </div>
+    <span class="bar-val">+0.124</span>
+  </div>
+  <div class="bar-row">
+    <span class="bar-name">J. O'Shea (Home)</span>
+    <div class="bar-track" style="background:#2a0000">
+      <div style="height:100%;width:58%;background:rgba(255,85,85,.6);border-radius:4px;margin-left:auto"></div>
+    </div>
+    <span class="bar-val">−0.209</span>
+  </div>
+</div>
+
+<h4>③ オフボール貢献テーブル（左カラム）</h4>
+
+<table>
+  <tr><th>カラム</th><th>意味</th></tr>
+  <tr><td>xT合計</td><td>オフボールラン中の xT 値の合計。大きいほど危険なスペースに入れた</td></tr>
+  <tr><td>ラン数</td><td>シーン内のオフボールラン回数</td></tr>
+  <tr><td>ライン突破</td><td>守備ラインを突破したランの回数</td></tr>
+  <tr><td>ランDL背後</td><td>最終ライン背後へのランの回数</td></tr>
+</table>
+
+<h4>④ 守備貢献テーブル（右カラム）</h4>
+
+<table>
+  <tr><th>カラム</th><th>意味</th></tr>
+  <tr><td>守備VAEP</td><td>相手の攻撃価値をどれだけ削減したか（大きいほど良い守備）</td></tr>
+  <tr><td>対人回数</td><td>ボール保持者への守備エンゲージメント回数</td></tr>
+  <tr><td>危機阻止</td><td>相手の決定機を完全に阻止した回数</td></tr>
+  <tr><td>危機軽減</td><td>危険な状況を軽減した回数</td></tr>
+  <tr><td>後退強制</td><td>相手を後退させることに成功した回数</td></tr>
+  <tr><td>突破(ボール)</td><td>ボール操作で突破されてしまった回数</td></tr>
+  <tr><td>突破(動き)</td><td>動きで抜かれてしまった回数</td></tr>
+</table>
+
+
+<!-- ═══════════════════════════════ 7. 指標 ═══════════════════════════════ -->
+<h2 id="metrics">7. 指標の意味と読み方</h2>
+
+<h3>xT（Expected Threat）</h3>
+
+<p>
+  ピッチ上の各位置から得点につながる確率を 105×68 グリッドで表した指標。
+  ボールがある位置の「危険度」を示します。
+</p>
+
+<table>
+  <tr><th>指標</th><th>意味</th><th>高い = ?</th></tr>
+  <tr>
+    <td><code>Ball_xT</code></td>
+    <td>ボール位置の xT（ポゼッション考慮済み）</td>
+    <td>ゴールに近い危険な位置にボールがある</td>
+  </tr>
+  <tr>
+    <td><code>Home_MAX_xT</code></td>
+    <td>Home 選手 11名の xT の最大値（フレームごと）</td>
+    <td>Home チームで最も危険な位置にいる選手がいる</td>
+  </tr>
+  <tr>
+    <td><code>Away_MAX_xT</code></td>
+    <td>Away 選手 11名の xT の最大値</td>
+    <td>Away チームで最も危険な位置にいる選手がいる</td>
+  </tr>
+  <tr>
+    <td>個人 <code>xT</code></td>
+    <td>その選手が立っている位置の xT</td>
+    <td>その選手がゴールに近い危険なエリアにいる</td>
+  </tr>
+</table>
+
+<div class="info-box">
+  💡 <strong>Ball_xT の変化でパスの価値がわかります。</strong><br>
+  例：0.01 → 0.05 に上昇した瞬間は、その直前のパスで +0.04 の価値が生まれたことを意味します。
+  xT タイムラインで「急上昇する点」がチャンス創出のタイミングです。
+</div>
+
+<h3>VAEP（Value of Actions by Estimating Probabilities）</h3>
+
+<p>
+  各アクションが「得点確率」と「失点確率」をどう変化させたかを計算する指標。
+  ゴールやシュートに直結しないプレーも評価できます。
+</p>
+
+<pre><code>VAEP = Δ P(得点) − Δ P(失点)
+     = (xshot_end − xshot_start) − (xloss_end − xloss_start)</code></pre>
+
+<table>
+  <tr><th>指標</th><th>計算元</th><th>対象</th><th>プラス = ?</th></tr>
+  <tr>
+    <td><strong>vaep_attack</strong></td>
+    <td>on_ball_engagement イベント</td>
+    <td>ボール保持者（攻撃側）</td>
+    <td>プレッシャー下でも攻撃価値を維持・向上</td>
+  </tr>
+  <tr>
+    <td><strong>vaep_defend</strong></td>
+    <td>on_ball_engagement イベント</td>
+    <td>エンゲージした守備側</td>
+    <td>相手の攻撃を効果的に阻止</td>
+  </tr>
+  <tr>
+    <td><strong>off_ball_xthreat</strong></td>
+    <td>off_ball_run イベント</td>
+    <td>ランした選手</td>
+    <td>危険なスペースへのランで味方をサポート</td>
+  </tr>
+  <tr>
+    <td><strong>vaep_total</strong></td>
+    <td>上記3つの合算</td>
+    <td>全選手</td>
+    <td>シーン全体への総合貢献が高い</td>
+  </tr>
+</table>
+
+<div class="warn-box">
+  ⚠️ VAEP は「on_ball_engagement（守備エンゲージメント）」イベントから計算されます。<br>
+  パスを出す / 受ける場面でなく、守備側が接触を試みた場面が対象です。<br>
+  そのため、ボール保持者のパス精度等は <strong>直接</strong>は評価されません。
+</div>
+
+
+<!-- ═══════════════════════════════ 8. 実例 ═══════════════════════════════ -->
+<h2 id="example">8. 実データ例：Brisbane Roar 0–1 Perth Glory</h2>
+
+<p>
+  ゴール前 30秒（SkillCorner フレーム 1〜300）のウィンドウで計算した結果です。
+</p>
+
+<h3>VAEP ランキング</h3>
+
+<table>
+  <tr>
+    <th>順位</th>
+    <th>選手名</th>
+    <th>チーム</th>
+    <th>Attack</th>
+    <th>Defend</th>
+    <th>Off-ball xT</th>
+    <th>Total</th>
+    <th>読み取れること</th>
+  </tr>
+  <tr>
+    <td>1位</td>
+    <td>J. Risdon</td>
+    <td><span class="chip chip-away">Away</span></td>
+    <td>+0.209</td>
+    <td>−0.063</td>
+    <td>0.000</td>
+    <td><strong>+0.146</strong></td>
+    <td>ゴールスコアラー。攻撃価値を最大に創出</td>
+  </tr>
+  <tr>
+    <td>2位</td>
+    <td>K. Jelacic</td>
+    <td><span class="chip chip-home">Home</span></td>
+    <td>+0.126</td>
+    <td>0.000</td>
+    <td>0.002</td>
+    <td><strong>+0.126</strong></td>
+    <td>Brisbane唯一のプラス。ビルドアップで貢献</td>
+  </tr>
+  <tr>
+    <td>3位</td>
+    <td>T. Ostler</td>
+    <td><span class="chip chip-away">Away</span></td>
+    <td>0.000</td>
+    <td>+0.124</td>
+    <td>0.000</td>
+    <td><strong>+0.124</strong></td>
+    <td>Perth の守備貢献者。Brisbane 攻撃を阻止</td>
+  </tr>
+  <tr>
+    <td>—</td>
+    <td>A. Burke-Gilroy</td>
+    <td><span class="chip chip-home">Home</span></td>
+    <td>−0.124</td>
+    <td>0.000</td>
+    <td>0.017</td>
+    <td><strong>−0.122</strong></td>
+    <td>3本ランを出したが受け取れず攻撃価値損失</td>
+  </tr>
+  <tr>
+    <td>最下位</td>
+    <td>J. O'Shea</td>
+    <td><span class="chip chip-home">Home</span></td>
+    <td>0.000</td>
+    <td>−0.209</td>
+    <td>0.002</td>
+    <td><strong>−0.209</strong></td>
+    <td>守備エンゲージで崩された中盤。最低評価</td>
+  </tr>
+</table>
+
+<div class="card green">
+  <h4 style="margin-top:0;color:var(--green)">💡 このシーンから読み取れること</h4>
+  <p>
+    Perth Glory（Away）の <strong>J. Risdon がゴール前に最大の攻撃価値を創出</strong>し、
+    Brisbane（Home）の <strong>J. O'Shea が守備で崩された</strong>ことが数値で確認できます。<br>
+    従来の xT 表示（位置情報）と組み合わせることで、
+    「誰が、どのプレーで、どれだけ試合を動かしたか」を立体的に分析できます。
+  </p>
+</div>
+
+
+<!-- ═══════════════════════════════ 9. FAQ ════════════════════════════════ -->
+<h2 id="faq">9. よくある質問</h2>
+
+<div class="card">
+  <h3 style="margin-top:0">Q. v22 と v23 は同時に使えますか？</h3>
+  <p>
+    はい。Streamlit Cloud では別々のデプロイとして登録し、異なる URL を使います。
+    ローカルでは <code>app_22.py</code> と <code>app_23.py</code> を別ターミナルで起動してください。
+  </p>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0">Q. 別の試合のデータでも使えますか？</h3>
+  <p>
+    はい。シーン CSV と dynamic_events.csv を対象試合のものに入れ替え、
+    <code>match_info.json</code> の <code>home_team_id</code> / <code>away_team_id</code> を
+    対象チームの SkillCorner ID に変更してください。
+  </p>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0">Q. 「貢献度を計算する」を押したら画面が変わらない</h3>
+  <p>
+    以下を確認してください：
+  </p>
+  <ol style="padding-left:1.4em;color:#c0d4e8;margin-top:.4em">
+    <li><code>dynamic_events.csv</code> のパスが正しいか</li>
+    <li><code>match_info.json</code> が存在し、<code>goal_frame_raw</code> と <code>window_frames</code> が含まれているか</li>
+    <li>Team ID が対象試合のものか（Brisbane=1802, Perth=871）</li>
+    <li>フレーム範囲を「手動指定」に切り替えて試す</li>
+  </ol>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0">Q. xT と VAEP はどう使い分けますか？</h3>
+  <table style="margin-top:.5em">
+    <tr><th></th><th>xT</th><th>VAEP</th></tr>
+    <tr><td>向いている用途</td><td>「どこに誰がいたか」の把握</td><td>「誰がどう貢献したか」の定量評価</td></tr>
+    <tr><td>ゴール以外の評価</td><td>位置情報のみ</td><td>パス・守備・オフボールも評価</td></tr>
+    <tr><td>アニメーション連動</td><td>✅ リアルタイム表示</td><td>シーン単位の集計値</td></tr>
+  </table>
+  <p style="margin-top:.6em">
+    <strong>推奨:</strong> ピッチアニメで戦術を確認（xT）→ 誰が鍵だったかを数値で検証（VAEP）の順で使うと効果的です。
+  </p>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0">Q. 選手番号と VAEP はどう対応していますか？</h3>
+  <p>
+    現在、ピッチアニメの選手番号（Home_P1〜P11）と
+    VAEP の選手名（J. Risdon 等）は <strong>自動で紐付いていません</strong>。<br>
+    SkillCorner の player_id → トラッキングスロット番号のマッピングデータが必要です。
+    将来バージョンで対応予定です。
+  </p>
+</div>
+
+<hr>
+
+<p style="text-align:center;color:var(--muted);font-size:.8rem;margin-top:2rem">
+  Pitch Log — 取扱説明書 | v22 / v23<br>
+  <a href="https://github.com/itsapieceofcake4-max/pitch-log" target="_blank">GitHub リポジトリ</a>
+</p>
+
+</body>
+</html>
