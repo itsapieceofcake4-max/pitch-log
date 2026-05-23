@@ -67,8 +67,8 @@ with st.sidebar:
 
         **関連リンク**
 
-        - [v22 アプリ](https://share.streamlit.io/) — ピッチビジュアライザ
-        - [v23 アプリ](https://share.streamlit.io/) — VAEP 貢献度分析
+        - [v22 アプリ](https://pitch-log-22.streamlit.app/) — ピッチビジュアライザ
+        - [v23 アプリ](https://pitch-log-23.streamlit.app/) — VAEP 貢献度分析
         - [GitHub リポジトリ](https://github.com/itsapieceofcake4-max/pitch-log)
         - [HTML 単体表示](https://raw.githack.com/itsapieceofcake4-max/pitch-log/main/docs/pitch-log-manual.html)
 
