@@ -1273,6 +1273,194 @@ def build_vaep_chart(contrib_df: pd.DataFrame, team_filter: str = "両チーム"
     return fig
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# Δ xT timeline + Zone-based analysis (新規)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _ensure_gsa_extended(df: pd.DataFrame, fps: float) -> pd.DataFrame:
+    """Run add_gsa_features() on the fly if columns are missing."""
+    if "Delta_Ball_xT" in df.columns and "Ball_Zone_Away" in df.columns:
+        return df
+    try:
+        _p23_path = Path(__file__).parent / "xt_pipeline_23.py"
+        _spec23 = _ilu.spec_from_file_location("_pipe23_ext", _p23_path)
+        _pipe23 = _ilu.module_from_spec(_spec23)
+        _spec23.loader.exec_module(_pipe23)
+        return _pipe23.add_gsa_features(df, fps=fps)
+    except Exception as e:
+        st.warning(f"GSA拡張カラムの追加に失敗: {e}")
+        return df
+
+
+def build_delta_xt_chart(
+    df: pd.DataFrame,
+    side: str = "Away",
+    time_offset: float = 0.0,
+) -> go.Figure:
+    """
+    Δ Ball_xT を時系列バーで表示。背景はゾーン色で塗り分け。
+    累積xT獲得量も折れ線で重ね描き。
+    """
+    if "Delta_Ball_xT" not in df.columns:
+        return go.Figure()
+
+    if "Match_Time_sec" in df.columns and (time_offset != 0.0 or df["Match_Time_sec"].max() > 60):
+        times   = (df["Match_Time_sec"] + time_offset).values
+        x_label = "試合時刻 (秒)"
+    else:
+        times   = df["Time"].values
+        x_label = "Time (sec)"
+
+    zone_col = f"Ball_Zone_{side}"
+    fig = go.Figure()
+
+    # ── ゾーン背景（横帯） ────────────────────────────────────────────────
+    if zone_col in df.columns:
+        zones = df[zone_col].fillna(2).astype(int).values
+        i = 0
+        n = len(zones)
+        while i < n:
+            j = i
+            while j + 1 < n and zones[j + 1] == zones[i]:
+                j += 1
+            z = int(zones[i])
+            fig.add_vrect(
+                x0=float(times[i]), x1=float(times[j]),
+                fillcolor={1: "rgba(94,196,255,0.07)",
+                           2: "rgba(255,215,0,0.06)",
+                           3: "rgba(255,85,85,0.09)"}.get(z, "rgba(0,0,0,0)"),
+                line_width=0, layer="below",
+            )
+            i = j + 1
+
+    # ── Δ Ball_xT バー ─────────────────────────────────────────────────
+    dxt = df["Delta_Ball_xT"].values
+    colors = ["rgba(74,222,128,0.85)" if v >= 0 else "rgba(255,99,99,0.75)" for v in dxt]
+    fig.add_trace(go.Bar(
+        x=times, y=dxt, name="Δ Ball_xT",
+        marker=dict(color=colors),
+        hovertemplate="t=%{x:.2f}s  Δ xT=%{y:+.4f}<extra></extra>",
+    ))
+
+    # ── 累積 xT 獲得量（折れ線・第2軸） ───────────────────────────────────
+    cum_col = "Cumulative_Ball_xT_gain"
+    if cum_col in df.columns:
+        fig.add_trace(go.Scatter(
+            x=times, y=df[cum_col].values, mode="lines", name="累積 xT 獲得",
+            line=dict(color="#FFD700", width=2),
+            yaxis="y2",
+            hovertemplate="t=%{x:.2f}s  累積=%{y:.4f}<extra></extra>",
+        ))
+
+    # ── レイアウト ────────────────────────────────────────────────────────
+    fig.update_layout(
+        title=dict(
+            text=(f"<b>Δ Ball_xT</b>（{side}視点ゾーン色） + "
+                  f"<span style='color:#FFD700'>累積xT獲得</span>"),
+            font=dict(color="white", size=11),
+        ),
+        plot_bgcolor="#0e1825", paper_bgcolor="#0e1825",
+        xaxis=dict(title=x_label, color="#b0c8e0",
+                   showgrid=True, gridcolor="rgba(255,255,255,0.05)"),
+        yaxis=dict(title="Δ xT (per frame)", color="#b0c8e0",
+                   showgrid=True, gridcolor="rgba(255,255,255,0.05)",
+                   zeroline=True, zerolinecolor="rgba(255,255,255,0.25)"),
+        yaxis2=dict(title="累積", overlaying="y", side="right",
+                    color="#FFD700", showgrid=False),
+        bargap=0.05,
+        legend=dict(orientation="h", x=0, y=-0.25,
+                    font=dict(color="white", size=9), bgcolor="rgba(0,0,0,0.4)"),
+        margin=dict(l=10, r=40, t=35, b=70),
+        height=240,
+    )
+    return fig
+
+
+def render_zone_analysis(df: pd.DataFrame, fps: float) -> None:
+    """ゾーン別（自陣/ミドル/アタッキングサード）の xT 集計を表示。"""
+    st.markdown("---")
+    st.markdown(
+        "<h3 style='margin-bottom:0'>🎯 ゾーン別 xT 分析</h3>"
+        "<p style='color:#8b949e;font-size:.82rem;margin-top:2px'>"
+        "ボールがどのゾーンで脅威を生んだか — 攻撃側視点</p>",
+        unsafe_allow_html=True,
+    )
+
+    if "Delta_Ball_xT" not in df.columns:
+        st.warning("Δ Ball_xT カラムがありません（GSA拡張未実行）。")
+        return
+
+    try:
+        _p23_path = Path(__file__).parent / "xt_pipeline_23.py"
+        _spec23 = _ilu.spec_from_file_location("_pipe23_zone", _p23_path)
+        _pipe23 = _ilu.module_from_spec(_spec23)
+        _spec23.loader.exec_module(_pipe23)
+    except Exception as e:
+        st.error(f"pipeline_23 読み込みエラー: {e}")
+        return
+
+    side = st.radio("視点", ["Away", "Home"], horizontal=True, key="zone_side")
+
+    zdf = _pipe23.aggregate_by_zone(df, side=side, fps=fps)
+    if zdf.empty:
+        st.info("ゾーン集計データが空です。")
+        return
+
+    # ── ゾーン凡例 ──
+    st.caption(
+        "🔵 自陣 (own third) | 🟡 ミドル (middle third) | 🔴 アタッキングサード (attacking third)"
+    )
+
+    # ── メトリクス（3列）──
+    cols = st.columns(3)
+    icons = {1: "🔵", 2: "🟡", 3: "🔴"}
+    for i, row in zdf.iterrows():
+        z   = int(row["zone"])
+        col = cols[z - 1]
+        col.markdown(
+            f"**{icons[z]} {row['zone_label']}**"
+        )
+        col.metric(
+            "滞在時間",
+            f"{row['duration_sec']:.1f} 秒",
+            f"{int(row['n_frames'])} frames",
+        )
+        col.metric(
+            "Δ xT 合計（正のみ）",
+            f"{row['delta_xt_positive']:+.4f}",
+            f"ピーク {row['max_delta_xt']:+.4f}" if row['n_frames'] > 0 else None,
+        )
+
+    # ── 内訳テーブル ──
+    with st.expander("📋 ゾーン別 内訳テーブル", expanded=False):
+        display_df = zdf[["zone_label", "n_frames", "duration_sec",
+                          "delta_xt_positive", "delta_xt_sum",
+                          "max_delta_xt", "peak_frame"]].rename(columns={
+            "zone_label":         "ゾーン",
+            "n_frames":           "フレーム数",
+            "duration_sec":       "滞在(秒)",
+            "delta_xt_positive":  "Δ xT 獲得(正)",
+            "delta_xt_sum":       "Δ xT 合計(正負)",
+            "max_delta_xt":       "ピーク Δ xT",
+            "peak_frame":         "ピーク発生Frame",
+        })
+        st.dataframe(display_df, use_container_width=True, hide_index=True,
+                     column_config={
+                         "Δ xT 獲得(正)":  st.column_config.NumberColumn(format="%+.4f"),
+                         "Δ xT 合計(正負)": st.column_config.NumberColumn(format="%+.4f"),
+                         "ピーク Δ xT":    st.column_config.NumberColumn(format="%+.4f"),
+                     })
+
+    # ── 解釈ヒント ──
+    if not zdf.empty:
+        max_zone = zdf.loc[zdf["delta_xt_positive"].idxmax()]
+        st.info(
+            f"💡 **{side}視点で最も xT を獲得したゾーン: "
+            f"{max_zone['zone_label']}** "
+            f"(Δ xT 合計 = {max_zone['delta_xt_positive']:+.4f})"
+        )
+
+
 def render_v23_panel(contrib_df: pd.DataFrame | None) -> None:
     """Full v23 player contribution analysis section."""
     st.markdown("---")
@@ -1799,6 +1987,19 @@ streamlit run app_23.py
         fig_line = build_timeline_fig(df, sel_home, sel_away, h_nums, a_nums, time_offset)
         st.plotly_chart(fig_line, use_container_width=True, config={"displayModeBar": False})
 
+        # ── Δ xT タイムライン（新規） ────────────────────────────────────
+        st.markdown("#### Δ xT タイムライン（時間ごとの増加量）")
+        st.caption(
+            "🟢 増加 / 🔴 減少 | 背景色はゾーン "
+            "(🔵自陣 / 🟡ミドル / 🔴アタッキングサード)"
+        )
+        df_ext = _ensure_gsa_extended(df, fps)
+        delta_side = st.radio("ゾーン視点", ["Away", "Home"],
+                              horizontal=True, key="delta_side")
+        fig_delta = build_delta_xt_chart(df_ext, side=delta_side, time_offset=time_offset)
+        st.plotly_chart(fig_delta, use_container_width=True,
+                        config={"displayModeBar": False})
+
         render_contribution_panel(causal_df, h_nums, a_nums, show_causal)
 
     # ── Frame data table ──────────────────────────────────────────────────────
@@ -1820,6 +2021,9 @@ streamlit run app_23.py
                                "GridID": row.get(f"Away_P{n}_GridID", pd.NA),
                                "xT": f"{row.get(f'Away_P{n}_xT', np.nan):.5f}"})
         st.dataframe(pd.DataFrame(rows_data), use_container_width=True, hide_index=True)
+
+    # ── ゾーン別 xT 分析（新規） ───────────────────────────────────────────────
+    render_zone_analysis(_ensure_gsa_extended(df, fps), fps)
 
     # ── v23 VAEP panel ─────────────────────────────────────────────────────────
     render_v23_panel(contrib_df)

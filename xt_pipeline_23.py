@@ -424,7 +424,100 @@ def add_gsa_features(df: pd.DataFrame, fps: float = 10.0) -> pd.DataFrame:
                 np.sqrt(vx_m**2 + vy_m**2) * fps
             ).fillna(0.0).round(3)
 
+    # ── Zone classification (based on ball X position) ────────────────────────
+    # Home perspective: 1=own third (X<0.33), 2=middle (0.33-0.66), 3=attacking (>0.66)
+    # Away perspective: mirrored (1=Away own third = X>0.66, etc.)
+    out["Ball_Zone_Home"] = pd.cut(
+        bx, bins=[-np.inf, 0.33, 0.66, np.inf], labels=[1, 2, 3]
+    ).astype("Int64")
+    out["Ball_Zone_Away"] = pd.cut(
+        1 - bx, bins=[-np.inf, 0.33, 0.66, np.inf], labels=[1, 2, 3]
+    ).astype("Int64")
+
+    # ── Cumulative xT gain (only positive deltas accumulated) ─────────────────
+    # Represents "how much threat has been accumulated up to this point"
+    if "Delta_Ball_xT" in out.columns:
+        pos_delta = out["Delta_Ball_xT"].clip(lower=0)
+        out["Cumulative_Ball_xT_gain"] = pos_delta.cumsum().round(5)
+    if "Delta_Away_MAX_xT" in out.columns:
+        pos_delta = out["Delta_Away_MAX_xT"].clip(lower=0)
+        out["Cumulative_Away_MAX_xT_gain"] = pos_delta.cumsum().round(5)
+    if "Delta_Home_MAX_xT" in out.columns:
+        pos_delta = out["Delta_Home_MAX_xT"].clip(lower=0)
+        out["Cumulative_Home_MAX_xT_gain"] = pos_delta.cumsum().round(5)
+
     return out
+
+
+# ── Zone-based aggregation ─────────────────────────────────────────────────────
+
+ZONE_LABELS = {1: "自陣", 2: "ミドル", 3: "アタッキングサード"}
+ZONE_COLORS = {1: "rgba(94,196,255,0.15)",   # blue-ish (own)
+               2: "rgba(255,215,0,0.13)",     # yellow (mid)
+               3: "rgba(255,85,85,0.18)"}     # red (attack)
+
+
+def aggregate_by_zone(
+    df: pd.DataFrame,
+    side: str = "Away",
+    fps: float = 10.0,
+) -> pd.DataFrame:
+    """
+    Aggregate Δ xT and time-spent per zone (1=own / 2=mid / 3=attacking).
+
+    Parameters
+    ----------
+    df   : Scene DataFrame already extended with add_gsa_features().
+    side : "Home" or "Away" — which team's perspective to use.
+    fps  : frames per second (for time calculation).
+
+    Returns
+    -------
+    DataFrame with columns:
+      zone, zone_label,
+      n_frames, duration_sec,
+      delta_xt_sum (gain in this zone, sum of Δ Ball_xT),
+      delta_xt_positive (sum of positive Δ Ball_xT only — "value created"),
+      max_delta_xt, peak_frame
+    """
+    zone_col = f"Ball_Zone_{side}"
+    if zone_col not in df.columns or "Delta_Ball_xT" not in df.columns:
+        return pd.DataFrame()
+
+    rows = []
+    for z in [1, 2, 3]:
+        mask = df[zone_col] == z
+        sub  = df[mask]
+        if len(sub) == 0:
+            rows.append({
+                "zone":            z,
+                "zone_label":      ZONE_LABELS[z],
+                "n_frames":        0,
+                "duration_sec":    0.0,
+                "delta_xt_sum":    0.0,
+                "delta_xt_positive": 0.0,
+                "max_delta_xt":    0.0,
+                "peak_frame":      None,
+            })
+            continue
+
+        dxt    = sub["Delta_Ball_xT"]
+        dxt_p  = dxt.clip(lower=0)
+        i_peak = dxt.idxmax() if len(dxt) else None
+        peak_frame = int(sub.loc[i_peak, "Frame"]) if i_peak is not None and "Frame" in sub.columns else None
+
+        rows.append({
+            "zone":              z,
+            "zone_label":        ZONE_LABELS[z],
+            "n_frames":          int(len(sub)),
+            "duration_sec":      round(len(sub) / fps, 2),
+            "delta_xt_sum":      round(float(dxt.sum()),   5),
+            "delta_xt_positive": round(float(dxt_p.sum()), 5),
+            "max_delta_xt":      round(float(dxt.max()),   5),
+            "peak_frame":        peak_frame,
+        })
+
+    return pd.DataFrame(rows)
 
 
 def detect_fps_from_scene(df: pd.DataFrame) -> float:
