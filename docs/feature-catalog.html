@@ -285,6 +285,12 @@
     <span class="badge badge-red">🔴 大規模 (外部統合)</span>
     <span class="badge badge-info">★ GSA寄与度</span>
   </div>
+  <div class="badges" style="margin-top:.5rem">
+    <span class="badge badge-green">📍 Tracking のみ</span>
+    <span class="badge badge-yellow">🎯 Possession 推定可</span>
+    <span class="badge badge-yellow">🧮 Event データ必要</span>
+    <span class="badge badge-red">🔒 SkillCorner 専用</span>
+  </div>
 </div>
 
 <!-- ═══════════════════════════════ TOC ════════════════════════════════ -->
@@ -305,17 +311,35 @@
     <li><a href="#roadmap">📍 推奨ロードマップ</a></li>
     <li><a href="#target">🎯 目的変数候補</a></li>
     <li><a href="#warning">⚠️ 多重共線性の注意</a></li>
+    <li><a href="#portability">🌍 他試合への適用ガイド</a></li>
   </ol>
 </div>
 
 <!-- ═══════════════════════════════ 凡例 ════════════════════════════════ -->
 <div class="legend">
-  <span><strong>🟢</strong> 実装簡単（1〜数行）</span>
-  <span><strong>🟡</strong> 中程度（10〜30行）</span>
-  <span><strong>🔴</strong> 大きめ（外部統合・複雑）</span>
-  <span><strong>★★★</strong> GSA寄与度 高</span>
-  <span><strong>★★</strong> 中</span>
-  <span><strong>★</strong> 低</span>
+  <div style="width:100%">
+    <strong>実装難易度</strong>
+    <span style="margin-left:.7em"><strong>🟢</strong> 簡単</span>
+    <span style="margin-left:.7em"><strong>🟡</strong> 中程度</span>
+    <span style="margin-left:.7em"><strong>🔴</strong> 大きめ</span>
+    <span style="margin-left:1.5em"><strong>GSA寄与</strong></span>
+    <span style="margin-left:.7em"><strong>★★★</strong> 高 / <strong>★★</strong> 中 / <strong>★</strong> 低</span>
+  </div>
+  <div style="width:100%;margin-top:.4rem">
+    <strong>データ要件（他試合適用時に重要）</strong>
+    <span style="margin-left:.7em"><strong>📍</strong> Tracking のみ（どこでもOK）</span>
+    <span style="margin-left:.7em"><strong>🎯</strong> Possession 情報（推定可）</span>
+    <span style="margin-left:.7em"><strong>🧮</strong> Event データ必要</span>
+    <span style="margin-left:.7em"><strong>🔒</strong> SkillCorner 専用</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ 移植性サマリ ════════════════════════ -->
+<div class="success-box">
+  <strong>📌 他試合への適用について</strong><br>
+  raw トラッキングデータ（x, y 座標）さえあれば、約 <strong>9割のカラム</strong>は自動生成できます。<br>
+  SkillCorner 専用は <strong>カテゴリ⑨と VAEP関連のみ</strong>。Tracab / Second Spectrum / Metrica などでも変換スクリプト1本作れば
+  カテゴリ ① 〜 ④ ⑦ ⑧ ⑩ が全て使えます。
 </div>
 
 
@@ -344,105 +368,108 @@ Cumulative_Ball_xT_gain, Cumulative_{team}_MAX_xT_gain
 
 <table>
   <thead>
-    <tr><th>カラム名</th><th>内容</th><th>GSA価値</th><th>実装</th></tr>
+    <tr><th>カラム名</th><th>内容</th><th>GSA価値</th><th>実装</th><th>データ要件</th></tr>
   </thead>
   <tbody>
-    <tr><td class="col-name">Ball_vx, Ball_vy</td><td>ボール速度成分 (m/s)</td><td class="col-value">★★★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">Ball_speed</td><td>ボール速度 (m/s)</td><td class="col-value">★★★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">Ball_acceleration</td><td>ボール加速度 (m/s²)</td><td class="col-value">★★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">Ball_direction</td><td>ボール進行方向 (角度)</td><td class="col-value">★★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">Ball_dist_traveled</td><td>累積走行距離 (m)</td><td class="col-value">★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">{team}_P{n}_vx, vy</td><td>各選手の速度成分</td><td class="col-value">★★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">{team}_P{n}_acceleration</td><td>各選手の加速度</td><td class="col-value">★★★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">{team}_P{n}_direction</td><td>各選手の進行方向</td><td class="col-value">★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">{team}_P{n}_is_sprinting</td><td>スプリント判定 (>5.5m/s)</td><td class="col-value">★★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">{team}_P{n}_dist_traveled</td><td>累積走行距離</td><td class="col-value">★</td><td class="col-impl">🟢</td></tr>
+    <tr><td class="col-name">Ball_vx, Ball_vy</td><td>ボール速度成分 (m/s)</td><td class="col-value">★★★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">Ball_speed</td><td>ボール速度 (m/s)</td><td class="col-value">★★★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">Ball_acceleration</td><td>ボール加速度 (m/s²)</td><td class="col-value">★★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">Ball_direction</td><td>ボール進行方向 (角度)</td><td class="col-value">★★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">Ball_dist_traveled</td><td>累積走行距離 (m)</td><td class="col-value">★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">{team}_P{n}_vx, vy</td><td>各選手の速度成分</td><td class="col-value">★★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">{team}_P{n}_acceleration</td><td>各選手の加速度</td><td class="col-value">★★★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">{team}_P{n}_direction</td><td>各選手の進行方向</td><td class="col-value">★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">{team}_P{n}_is_sprinting</td><td>スプリント判定 (>5.5m/s)</td><td class="col-value">★★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">{team}_P{n}_dist_traveled</td><td>累積走行距離</td><td class="col-value">★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
   </tbody>
 </table>
-<p style="color:var(--muted);font-size:.8rem">→ 22選手分入れると 約 100 カラム追加</p>
+<p style="color:var(--muted);font-size:.8rem">→ 22選手分入れると 約 100 カラム追加 ｜ <strong>📍 すべて tracking のみで生成可能</strong></p>
 
 
 <!-- ═══════════════════════════════ ② ═══════════════════════════════════ -->
 <h2 id="cat2">② 距離・位置関係 <span style="color:var(--green);font-size:.7em">🟢〜🟡</span></h2>
 
 <table>
-  <thead><tr><th>カラム名</th><th>内容</th><th>GSA価値</th><th>実装</th></tr></thead>
+  <thead><tr><th>カラム名</th><th>内容</th><th>GSA価値</th><th>実装</th><th>データ要件</th></tr></thead>
   <tbody>
-    <tr><td class="col-name">{team}_P{n}_dist_goal</td><td>各選手からゴールまでの距離</td><td class="col-value">★★★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">{team}_P{n}_dist_own_goal</td><td>自陣ゴールまでの距離</td><td class="col-value">★★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">{team}_P{n}_dist_nearest_opp</td><td>最近接相手選手との距離</td><td class="col-value">★★★</td><td class="col-impl">🟡</td></tr>
-    <tr><td class="col-name">{team}_P{n}_dist_nearest_team</td><td>最近接味方との距離</td><td class="col-value">★★</td><td class="col-impl">🟡</td></tr>
-    <tr><td class="col-name">{team}_P{n}_n_opp_within_3m</td><td>3m以内の相手選手数（プレッシャー）</td><td class="col-value">★★★</td><td class="col-impl">🟡</td></tr>
-    <tr><td class="col-name">{team}_P{n}_n_opp_within_5m</td><td>5m以内の相手選手数</td><td class="col-value">★★</td><td class="col-impl">🟡</td></tr>
-    <tr><td class="col-name">Ball_dist_goal_home</td><td>ボール→Homeゴール距離</td><td class="col-value">★★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">Ball_dist_goal_away</td><td>ボール→Awayゴール距離</td><td class="col-value">★★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">Ball_carrier_id</td><td>現在のボール保持者ID</td><td class="col-value">★★★</td><td class="col-impl">🟡</td></tr>
-    <tr><td class="col-name">Ball_carrier_team</td><td>保持チーム（Home/Away/None）</td><td class="col-value">★★★</td><td class="col-impl">🟡</td></tr>
-    <tr><td class="col-name">Pressure_on_carrier</td><td>保持者への3m以内相手数</td><td class="col-value">★★★</td><td class="col-impl">🟡</td></tr>
+    <tr><td class="col-name">{team}_P{n}_dist_goal</td><td>各選手からゴールまでの距離</td><td class="col-value">★★★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">{team}_P{n}_dist_own_goal</td><td>自陣ゴールまでの距離</td><td class="col-value">★★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">{team}_P{n}_dist_nearest_opp</td><td>最近接相手選手との距離</td><td class="col-value">★★★</td><td class="col-impl">🟡</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">{team}_P{n}_dist_nearest_team</td><td>最近接味方との距離</td><td class="col-value">★★</td><td class="col-impl">🟡</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">{team}_P{n}_n_opp_within_3m</td><td>3m以内の相手選手数（プレッシャー）</td><td class="col-value">★★★</td><td class="col-impl">🟡</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">{team}_P{n}_n_opp_within_5m</td><td>5m以内の相手選手数</td><td class="col-value">★★</td><td class="col-impl">🟡</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">Ball_dist_goal_home</td><td>ボール→Homeゴール距離</td><td class="col-value">★★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">Ball_dist_goal_away</td><td>ボール→Awayゴール距離</td><td class="col-value">★★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">Ball_carrier_id</td><td>現在のボール保持者ID</td><td class="col-value">★★★</td><td class="col-impl">🟡</td><td class="col-impl">🎯</td></tr>
+    <tr><td class="col-name">Ball_carrier_team</td><td>保持チーム（Home/Away/None）</td><td class="col-value">★★★</td><td class="col-impl">🟡</td><td class="col-impl">🎯</td></tr>
+    <tr><td class="col-name">Pressure_on_carrier</td><td>保持者への3m以内相手数</td><td class="col-value">★★★</td><td class="col-impl">🟡</td><td class="col-impl">🎯</td></tr>
   </tbody>
 </table>
+<p style="color:var(--muted);font-size:.8rem">→ <strong>📍 大半は tracking のみ</strong> ｜ 🎯 ball_carrier 系は近接距離から推定可</p>
 
 
 <!-- ═══════════════════════════════ ③ ═══════════════════════════════════ -->
 <h2 id="cat3">③ チーム形状・組織 <span style="color:var(--yellow);font-size:.7em">🟡</span></h2>
 
 <table>
-  <thead><tr><th>カラム名</th><th>内容</th><th>GSA価値</th><th>実装</th></tr></thead>
+  <thead><tr><th>カラム名</th><th>内容</th><th>GSA価値</th><th>実装</th><th>データ要件</th></tr></thead>
   <tbody>
-    <tr><td class="col-name">Home_centroid_X, _Y</td><td>Home重心座標</td><td class="col-value">★★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">Away_centroid_X, _Y</td><td>Away重心座標</td><td class="col-value">★★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">Home_width</td><td>Home横幅 (Ymax - Ymin)</td><td class="col-value">★★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">Home_depth</td><td>Home縦幅 (Xmax - Xmin)</td><td class="col-value">★★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">Home_compactness</td><td>選手間平均距離</td><td class="col-value">★★</td><td class="col-impl">🟡</td></tr>
-    <tr><td class="col-name">Home_hull_area</td><td>布陣カバー面積 (凸包)</td><td class="col-value">★★</td><td class="col-impl">🟡</td></tr>
-    <tr><td class="col-name">Home_last_def_line_X</td><td>最終DFラインのX座標</td><td class="col-value">★★★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">Home_def_line_height</td><td>DFラインの平均高さ</td><td class="col-value">★★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">Home_mid_line_X</td><td>中盤ラインX座標</td><td class="col-value">★★</td><td class="col-impl">🟡</td></tr>
-    <tr><td class="col-name">Home_attack_line_X</td><td>攻撃ラインX座標</td><td class="col-value">★★</td><td class="col-impl">🟡</td></tr>
-    <tr><td class="col-name">Home_interline_dist_DF_MF</td><td>DF-MF間距離</td><td class="col-value">★★</td><td class="col-impl">🟡</td></tr>
-    <tr><td class="col-name">Home_interline_dist_MF_FW</td><td>MF-FW間距離</td><td class="col-value">★★</td><td class="col-impl">🟡</td></tr>
-    <tr><td colspan="4" style="text-align:center;color:var(--muted);font-style:italic">(Awayも同様)</td></tr>
+    <tr><td class="col-name">Home_centroid_X, _Y</td><td>Home重心座標</td><td class="col-value">★★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">Away_centroid_X, _Y</td><td>Away重心座標</td><td class="col-value">★★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">Home_width</td><td>Home横幅 (Ymax - Ymin)</td><td class="col-value">★★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">Home_depth</td><td>Home縦幅 (Xmax - Xmin)</td><td class="col-value">★★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">Home_compactness</td><td>選手間平均距離</td><td class="col-value">★★</td><td class="col-impl">🟡</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">Home_hull_area</td><td>布陣カバー面積 (凸包)</td><td class="col-value">★★</td><td class="col-impl">🟡</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">Home_last_def_line_X</td><td>最終DFラインのX座標</td><td class="col-value">★★★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">Home_def_line_height</td><td>DFラインの平均高さ</td><td class="col-value">★★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">Home_mid_line_X</td><td>中盤ラインX座標</td><td class="col-value">★★</td><td class="col-impl">🟡</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">Home_attack_line_X</td><td>攻撃ラインX座標</td><td class="col-value">★★</td><td class="col-impl">🟡</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">Home_interline_dist_DF_MF</td><td>DF-MF間距離</td><td class="col-value">★★</td><td class="col-impl">🟡</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">Home_interline_dist_MF_FW</td><td>MF-FW間距離</td><td class="col-value">★★</td><td class="col-impl">🟡</td><td class="col-impl">📍</td></tr>
+    <tr><td colspan="5" style="text-align:center;color:var(--muted);font-style:italic">(Awayも同様)</td></tr>
   </tbody>
 </table>
-<p style="color:var(--muted);font-size:.8rem">→ チーム形状は <strong>戦術的崩れ</strong> を捉えるのに強力</p>
+<p style="color:var(--muted);font-size:.8rem">→ <strong>📍 全て tracking のみ</strong> ｜ チーム形状は <strong>戦術的崩れ</strong> を捉えるのに強力</p>
 
 
 <!-- ═══════════════════════════════ ④ ═══════════════════════════════════ -->
 <h2 id="cat4">④ ゾーン拡張 <span style="color:var(--green);font-size:.7em">🟢</span></h2>
 
 <table>
-  <thead><tr><th>カラム名</th><th>内容</th><th>GSA価値</th><th>実装</th></tr></thead>
+  <thead><tr><th>カラム名</th><th>内容</th><th>GSA価値</th><th>実装</th><th>データ要件</th></tr></thead>
   <tbody>
-    <tr><td class="col-name">Ball_Zone_5div</td><td>縦5分割 (1〜5)</td><td class="col-value">★★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">Ball_Zone_lateral</td><td>横3分割 (left/center/right)</td><td class="col-value">★★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">Ball_Grid20</td><td>5×4=20領域グリッド</td><td class="col-value">★★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">Ball_in_penalty_area</td><td>ペナルティエリア内フラグ</td><td class="col-value">★★★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">Ball_in_box_18yard</td><td>18ヤードボックス内フラグ</td><td class="col-value">★★★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">Ball_in_half_space</td><td>ハーフスペース内フラグ</td><td class="col-value">★★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">Ball_in_wide_channel</td><td>サイドチャネル内フラグ</td><td class="col-value">★★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">{team}_P{n}_Zone</td><td>各選手のゾーン</td><td class="col-value">★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">Ball_zone_transition</td><td>ゾーン変化フラグ (進入/退出)</td><td class="col-value">★★★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">Ball_attacking_third_dwell_sec</td><td>アタッキングサード滞在累計秒</td><td class="col-value">★★</td><td class="col-impl">🟢</td></tr>
+    <tr><td class="col-name">Ball_Zone_5div</td><td>縦5分割 (1〜5)</td><td class="col-value">★★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">Ball_Zone_lateral</td><td>横3分割 (left/center/right)</td><td class="col-value">★★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">Ball_Grid20</td><td>5×4=20領域グリッド</td><td class="col-value">★★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">Ball_in_penalty_area</td><td>ペナルティエリア内フラグ</td><td class="col-value">★★★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">Ball_in_box_18yard</td><td>18ヤードボックス内フラグ</td><td class="col-value">★★★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">Ball_in_half_space</td><td>ハーフスペース内フラグ</td><td class="col-value">★★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">Ball_in_wide_channel</td><td>サイドチャネル内フラグ</td><td class="col-value">★★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">{team}_P{n}_Zone</td><td>各選手のゾーン</td><td class="col-value">★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">Ball_zone_transition</td><td>ゾーン変化フラグ (進入/退出)</td><td class="col-value">★★★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">Ball_attacking_third_dwell_sec</td><td>アタッキングサード滞在累計秒</td><td class="col-value">★★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
   </tbody>
 </table>
+<p style="color:var(--muted);font-size:.8rem">→ <strong>📍 全て tracking のみで生成可能</strong></p>
 
 
 <!-- ═══════════════════════════════ ⑤ ═══════════════════════════════════ -->
 <h2 id="cat5">⑤ ボール所有・フェーズ <span style="color:var(--yellow);font-size:.7em">🟡</span></h2>
 
 <table>
-  <thead><tr><th>カラム名</th><th>内容</th><th>GSA価値</th><th>実装</th></tr></thead>
+  <thead><tr><th>カラム名</th><th>内容</th><th>GSA価値</th><th>実装</th><th>データ要件</th></tr></thead>
   <tbody>
-    <tr><td class="col-name">Ball_possession</td><td>Home/Away/None</td><td class="col-value">★★★</td><td class="col-impl">🟡</td></tr>
-    <tr><td class="col-name">Possession_duration_sec</td><td>連続保持時間</td><td class="col-value">★★★</td><td class="col-impl">🟡</td></tr>
-    <tr><td class="col-name">Possession_team_phase</td><td>ビルドアップ/トランジ等</td><td class="col-value">★★</td><td class="col-impl">🔴</td></tr>
-    <tr><td class="col-name">Defensive_phase</td><td>ブロック構築/プレッシング等</td><td class="col-value">★★</td><td class="col-impl">🔴</td></tr>
-    <tr><td class="col-name">Is_open_play</td><td>オープンプレー中か</td><td class="col-value">★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">Is_set_piece</td><td>セットプレー中か</td><td class="col-value">★</td><td class="col-impl">🟢</td></tr>
+    <tr><td class="col-name">Ball_possession</td><td>Home/Away/None</td><td class="col-value">★★★</td><td class="col-impl">🟡</td><td class="col-impl">🎯</td></tr>
+    <tr><td class="col-name">Possession_duration_sec</td><td>連続保持時間</td><td class="col-value">★★★</td><td class="col-impl">🟡</td><td class="col-impl">🎯</td></tr>
+    <tr><td class="col-name">Possession_team_phase</td><td>ビルドアップ/トランジ等</td><td class="col-value">★★</td><td class="col-impl">🔴</td><td class="col-impl">🧮</td></tr>
+    <tr><td class="col-name">Defensive_phase</td><td>ブロック構築/プレッシング等</td><td class="col-value">★★</td><td class="col-impl">🔴</td><td class="col-impl">🧮</td></tr>
+    <tr><td class="col-name">Is_open_play</td><td>オープンプレー中か</td><td class="col-value">★</td><td class="col-impl">🟢</td><td class="col-impl">🧮</td></tr>
+    <tr><td class="col-name">Is_set_piece</td><td>セットプレー中か</td><td class="col-value">★</td><td class="col-impl">🟢</td><td class="col-impl">🧮</td></tr>
   </tbody>
 </table>
 <div class="info-box">
-  💡 元データに <code>ball_possession</code> 列があれば 🟢、なければ近接距離から推定 🟡
+  💡 ボール所有は <strong>🎯 元データに <code>ball_possession</code> 列があれば直接、なければ近接距離から推定可能</strong>。<br>
+  フェーズ判定（ビルドアップ等）は <strong>🧮 イベントデータ</strong>が必要（SkillCorner / StatsBomb / Opta どれでも可、形式変換必要）
 </div>
 
 
@@ -450,35 +477,36 @@ Cumulative_Ball_xT_gain, Cumulative_{team}_MAX_xT_gain
 <h2 id="cat6">⑥ パス・前進系 <span style="color:var(--yellow);font-size:.7em">🟡 〜 🔴</span></h2>
 
 <table>
-  <thead><tr><th>カラム名</th><th>内容</th><th>GSA価値</th><th>実装</th></tr></thead>
+  <thead><tr><th>カラム名</th><th>内容</th><th>GSA価値</th><th>実装</th><th>データ要件</th></tr></thead>
   <tbody>
-    <tr><td class="col-name">Pass_event_flag</td><td>パス発生フレーム</td><td class="col-value">★★★</td><td class="col-impl">🟡</td></tr>
-    <tr><td class="col-name">Pass_xT_gain</td><td>パスによるxT増加</td><td class="col-value">★★★</td><td class="col-impl">🟡</td></tr>
-    <tr><td class="col-name">Pass_distance_m</td><td>パス距離 (m)</td><td class="col-value">★★</td><td class="col-impl">🟡</td></tr>
-    <tr><td class="col-name">Pass_angle</td><td>パス角度</td><td class="col-value">★</td><td class="col-impl">🟡</td></tr>
-    <tr><td class="col-name">Pass_forward_component_m</td><td>パスの前進成分 (m)</td><td class="col-value">★★</td><td class="col-impl">🟡</td></tr>
-    <tr><td class="col-name">Pass_breaks_line_count</td><td>突破ライン数 (0〜3)</td><td class="col-value">★★★</td><td class="col-impl">🔴</td></tr>
-    <tr><td class="col-name">Pass_speed</td><td>パス速度 (m/s)</td><td class="col-value">★</td><td class="col-impl">🟡</td></tr>
-    <tr><td class="col-name">Ball_forward_velocity</td><td>ボール前進速度</td><td class="col-value">★★</td><td class="col-impl">🟢</td></tr>
+    <tr><td class="col-name">Pass_event_flag</td><td>パス発生フレーム</td><td class="col-value">★★★</td><td class="col-impl">🟡</td><td class="col-impl">🧮</td></tr>
+    <tr><td class="col-name">Pass_xT_gain</td><td>パスによるxT増加</td><td class="col-value">★★★</td><td class="col-impl">🟡</td><td class="col-impl">🧮</td></tr>
+    <tr><td class="col-name">Pass_distance_m</td><td>パス距離 (m)</td><td class="col-value">★★</td><td class="col-impl">🟡</td><td class="col-impl">🧮</td></tr>
+    <tr><td class="col-name">Pass_angle</td><td>パス角度</td><td class="col-value">★</td><td class="col-impl">🟡</td><td class="col-impl">🧮</td></tr>
+    <tr><td class="col-name">Pass_forward_component_m</td><td>パスの前進成分 (m)</td><td class="col-value">★★</td><td class="col-impl">🟡</td><td class="col-impl">🧮</td></tr>
+    <tr><td class="col-name">Pass_breaks_line_count</td><td>突破ライン数 (0〜3)</td><td class="col-value">★★★</td><td class="col-impl">🔴</td><td class="col-impl">🧮</td></tr>
+    <tr><td class="col-name">Pass_speed</td><td>パス速度 (m/s)</td><td class="col-value">★</td><td class="col-impl">🟡</td><td class="col-impl">🧮</td></tr>
+    <tr><td class="col-name">Ball_forward_velocity</td><td>ボール前進速度</td><td class="col-value">★★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
   </tbody>
 </table>
+<p style="color:var(--muted);font-size:.8rem">→ <strong>🧮 イベントデータが必要</strong>（SkillCorner / StatsBomb / Opta 形式変換で対応可）｜ Ball_forward_velocity のみ tracking から</p>
 
 
 <!-- ═══════════════════════════════ ⑦ ═══════════════════════════════════ -->
 <h2 id="cat7">⑦ 個人xT 変化系 <span style="color:var(--green);font-size:.7em">🟢</span></h2>
 
 <table>
-  <thead><tr><th>カラム名</th><th>内容</th><th>GSA価値</th><th>実装</th></tr></thead>
+  <thead><tr><th>カラム名</th><th>内容</th><th>GSA価値</th><th>実装</th><th>データ要件</th></tr></thead>
   <tbody>
-    <tr><td class="col-name">{team}_P{n}_Delta_xT</td><td>各選手のxT変化量</td><td class="col-value">★★★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">{team}_P{n}_Cumulative_xT_gain</td><td>各選手の累積xT獲得</td><td class="col-value">★★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">{team}_P{n}_xT_smoothed_3f</td><td>3フレーム移動平均xT</td><td class="col-value">★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">{team}_P{n}_peak_xT_in_scene</td><td>シーン中の最大xT</td><td class="col-value">★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">{team}_P{n}_xT_acceleration</td><td>xT変化の加速度</td><td class="col-value">★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">{team}_xT_weighted_centroid_X</td><td>xT加重重心</td><td class="col-value">★★</td><td class="col-impl">🟡</td></tr>
+    <tr><td class="col-name">{team}_P{n}_Delta_xT</td><td>各選手のxT変化量</td><td class="col-value">★★★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">{team}_P{n}_Cumulative_xT_gain</td><td>各選手の累積xT獲得</td><td class="col-value">★★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">{team}_P{n}_xT_smoothed_3f</td><td>3フレーム移動平均xT</td><td class="col-value">★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">{team}_P{n}_peak_xT_in_scene</td><td>シーン中の最大xT</td><td class="col-value">★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">{team}_P{n}_xT_acceleration</td><td>xT変化の加速度</td><td class="col-value">★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">{team}_xT_weighted_centroid_X</td><td>xT加重重心</td><td class="col-value">★★</td><td class="col-impl">🟡</td><td class="col-impl">📍</td></tr>
   </tbody>
 </table>
-<p style="color:var(--muted);font-size:.8rem">→ 22人 × 4列追加で約88カラム</p>
+<p style="color:var(--muted);font-size:.8rem">→ 22人 × 4列追加で約88カラム ｜ <strong>📍 全て tracking のみ</strong>（xT基本マップが共通であれば）</p>
 
 
 <!-- ═══════════════════════════════ ⑧ ═══════════════════════════════════ -->
@@ -489,39 +517,43 @@ Cumulative_Ball_xT_gain, Cumulative_{team}_MAX_xT_gain
 </div>
 
 <table>
-  <thead><tr><th>カラム名</th><th>内容</th><th>GSA価値</th><th>実装</th></tr></thead>
+  <thead><tr><th>カラム名</th><th>内容</th><th>GSA価値</th><th>実装</th><th>データ要件</th></tr></thead>
   <tbody>
-    <tr><td class="col-name">Ball_xT_lag1</td><td>1フレーム前 (0.1秒前)</td><td class="col-value">★★★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">Ball_xT_lag5</td><td>5フレーム前 (0.5秒前)</td><td class="col-value">★★★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">Ball_xT_lag10</td><td>10フレーム前 (1秒前)</td><td class="col-value">★★★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">Ball_xT_lag20</td><td>20フレーム前 (2秒前)</td><td class="col-value">★★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">Ball_xT_lag30</td><td>30フレーム前 (3秒前)</td><td class="col-value">★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">{team}_P{n}_xT_lag5</td><td>各選手xTの0.5秒前</td><td class="col-value">★★★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">{team}_P{n}_xT_lag10</td><td>各選手xTの1秒前</td><td class="col-value">★★</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">{team}_P{n}_speed_lag5</td><td>各選手速度の0.5秒前</td><td class="col-value">★★</td><td class="col-impl">🟢</td></tr>
+    <tr><td class="col-name">Ball_xT_lag1</td><td>1フレーム前 (0.1秒前)</td><td class="col-value">★★★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">Ball_xT_lag5</td><td>5フレーム前 (0.5秒前)</td><td class="col-value">★★★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">Ball_xT_lag10</td><td>10フレーム前 (1秒前)</td><td class="col-value">★★★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">Ball_xT_lag20</td><td>20フレーム前 (2秒前)</td><td class="col-value">★★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">Ball_xT_lag30</td><td>30フレーム前 (3秒前)</td><td class="col-value">★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">{team}_P{n}_xT_lag5</td><td>各選手xTの0.5秒前</td><td class="col-value">★★★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">{team}_P{n}_xT_lag10</td><td>各選手xTの1秒前</td><td class="col-value">★★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">{team}_P{n}_speed_lag5</td><td>各選手速度の0.5秒前</td><td class="col-value">★★</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
   </tbody>
 </table>
-<p style="color:var(--muted);font-size:.8rem">→ <strong>ラグ変数は GSA で因果方向を特定する核心</strong></p>
+<p style="color:var(--muted);font-size:.8rem">→ <strong>📍 全て tracking のみ</strong>。元カラム（xT・速度）を生成済みであれば自動的にラグも作れる ｜ <strong>ラグ変数は GSA で因果方向を特定する核心</strong></p>
 
 
 <!-- ═══════════════════════════════ ⑨ ═══════════════════════════════════ -->
 <h2 id="cat9">⑨ dynamic_events.csv 連動 <span style="color:var(--red);font-size:.7em">🔴 外部データ統合</span></h2>
 
 <table>
-  <thead><tr><th>カラム名</th><th>内容</th><th>GSA価値</th><th>実装</th></tr></thead>
+  <thead><tr><th>カラム名</th><th>内容</th><th>GSA価値</th><th>実装</th><th>データ要件</th></tr></thead>
   <tbody>
-    <tr><td class="col-name">Is_pass_moment</td><td>パス発生フレームフラグ</td><td class="col-value">★★★</td><td class="col-impl">🔴</td></tr>
-    <tr><td class="col-name">Is_shot_moment</td><td>シュート発生フレームフラグ</td><td class="col-value">★★★</td><td class="col-impl">🔴</td></tr>
-    <tr><td class="col-name">Is_engagement_moment</td><td>守備接触発生フラグ</td><td class="col-value">★★★</td><td class="col-impl">🔴</td></tr>
-    <tr><td class="col-name">Is_off_ball_run_active</td><td>オフボールラン進行中</td><td class="col-value">★★</td><td class="col-impl">🔴</td></tr>
-    <tr><td class="col-name">Frame_xshot_start/end</td><td>xshot値 (時系列)</td><td class="col-value">★★★</td><td class="col-impl">🔴</td></tr>
-    <tr><td class="col-name">Frame_xloss_start/end</td><td>xloss値 (時系列)</td><td class="col-value">★★</td><td class="col-impl">🔴</td></tr>
-    <tr><td class="col-name">Cumulative_VAEP_attack</td><td>累積攻撃VAEP</td><td class="col-value">★★</td><td class="col-impl">🔴</td></tr>
-    <tr><td class="col-name">Cumulative_VAEP_defend</td><td>累積守備VAEP</td><td class="col-value">★★</td><td class="col-impl">🔴</td></tr>
-    <tr><td class="col-name">Phase_index</td><td>プレーフェーズ番号</td><td class="col-value">★</td><td class="col-impl">🔴</td></tr>
-    <tr><td class="col-name">Pressing_chain_active</td><td>プレッシングチェーン中</td><td class="col-value">★★</td><td class="col-impl">🔴</td></tr>
+    <tr><td class="col-name">Is_pass_moment</td><td>パス発生フレームフラグ</td><td class="col-value">★★★</td><td class="col-impl">🔴</td><td class="col-impl">🔒</td></tr>
+    <tr><td class="col-name">Is_shot_moment</td><td>シュート発生フレームフラグ</td><td class="col-value">★★★</td><td class="col-impl">🔴</td><td class="col-impl">🔒</td></tr>
+    <tr><td class="col-name">Is_engagement_moment</td><td>守備接触発生フラグ</td><td class="col-value">★★★</td><td class="col-impl">🔴</td><td class="col-impl">🔒</td></tr>
+    <tr><td class="col-name">Is_off_ball_run_active</td><td>オフボールラン進行中</td><td class="col-value">★★</td><td class="col-impl">🔴</td><td class="col-impl">🔒</td></tr>
+    <tr><td class="col-name">Frame_xshot_start/end</td><td>xshot値 (時系列)</td><td class="col-value">★★★</td><td class="col-impl">🔴</td><td class="col-impl">🔒</td></tr>
+    <tr><td class="col-name">Frame_xloss_start/end</td><td>xloss値 (時系列)</td><td class="col-value">★★</td><td class="col-impl">🔴</td><td class="col-impl">🔒</td></tr>
+    <tr><td class="col-name">Cumulative_VAEP_attack</td><td>累積攻撃VAEP</td><td class="col-value">★★</td><td class="col-impl">🔴</td><td class="col-impl">🔒</td></tr>
+    <tr><td class="col-name">Cumulative_VAEP_defend</td><td>累積守備VAEP</td><td class="col-value">★★</td><td class="col-impl">🔴</td><td class="col-impl">🔒</td></tr>
+    <tr><td class="col-name">Phase_index</td><td>プレーフェーズ番号</td><td class="col-value">★</td><td class="col-impl">🔴</td><td class="col-impl">🔒</td></tr>
+    <tr><td class="col-name">Pressing_chain_active</td><td>プレッシングチェーン中</td><td class="col-value">★★</td><td class="col-impl">🔴</td><td class="col-impl">🔒</td></tr>
   </tbody>
 </table>
+<div class="warn-box">
+  <strong>🔒 SkillCorner 専用カラム群</strong>。他試合（Tracab / Second Spectrum / Metrica 等）では使えません。<br>
+  <strong>代替案：</strong> StatsBomb / Opta 等のイベントデータに同等情報がある場合、socceraction ライブラリで自前 VAEP 計算が可能（実装は別途必要）。
+</div>
 <p style="color:var(--muted);font-size:.8rem">※ raw frame ID で events を tracking と突合する必要あり</p>
 
 
@@ -529,18 +561,19 @@ Cumulative_Ball_xT_gain, Cumulative_{team}_MAX_xT_gain
 <h2 id="cat10">⑩ 目的変数候補の追加 <span style="color:var(--green);font-size:.7em">🟢〜🟡</span></h2>
 
 <table>
-  <thead><tr><th>カラム名</th><th>内容</th><th>用途</th><th>実装</th></tr></thead>
+  <thead><tr><th>カラム名</th><th>内容</th><th>用途</th><th>実装</th><th>データ要件</th></tr></thead>
   <tbody>
-    <tr><td class="col-name">Ball_xT_smoothed_5f</td><td>ノイズ除去版 Ball_xT</td><td>目的変数候補</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">Delta_Ball_xT_smoothed_3f</td><td>ノイズ除去版 ΔxT</td><td>目的変数候補</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">Ball_xT_squared</td><td>xT² (大きな値を強調)</td><td>目的変数候補</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">Ball_xT_max_in_5sec_window</td><td>5秒ウィンドウ最大xT</td><td>目的変数候補</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">Time_to_peak_xT_sec</td><td>xTピークまでの秒数</td><td>目的変数候補</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">Time_to_goal_sec</td><td>ゴールまでの残り秒数</td><td>目的変数候補</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">Is_attacking_third_entry</td><td>アタッキングサード進入フレーム</td><td>目的変数候補</td><td class="col-impl">🟢</td></tr>
-    <tr><td class="col-name">Is_penalty_area_entry</td><td>ペナルティエリア進入フレーム</td><td>目的変数候補</td><td class="col-impl">🟢</td></tr>
+    <tr><td class="col-name">Ball_xT_smoothed_5f</td><td>ノイズ除去版 Ball_xT</td><td>目的変数候補</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">Delta_Ball_xT_smoothed_3f</td><td>ノイズ除去版 ΔxT</td><td>目的変数候補</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">Ball_xT_squared</td><td>xT² (大きな値を強調)</td><td>目的変数候補</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">Ball_xT_max_in_5sec_window</td><td>5秒ウィンドウ最大xT</td><td>目的変数候補</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">Time_to_peak_xT_sec</td><td>xTピークまでの秒数</td><td>目的変数候補</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">Time_to_goal_sec</td><td>ゴールまでの残り秒数</td><td>目的変数候補</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">Is_attacking_third_entry</td><td>アタッキングサード進入フレーム</td><td>目的変数候補</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
+    <tr><td class="col-name">Is_penalty_area_entry</td><td>ペナルティエリア進入フレーム</td><td>目的変数候補</td><td class="col-impl">🟢</td><td class="col-impl">📍</td></tr>
   </tbody>
 </table>
+<p style="color:var(--muted);font-size:.8rem">→ <strong>📍 全て tracking のみで生成可能</strong>。他試合でも問題なく目的変数として使える</p>
 
 
 <!-- ═══════════════════════════════ ロードマップ ═══════════════════════ -->
@@ -689,6 +722,120 @@ Cumulative_Ball_xT_gain, Cumulative_{team}_MAX_xT_gain
 </table>
 
 <p style="margin-top:.6em">GSA投入時はどちらか片方を選ぶ。</p>
+
+
+<hr>
+
+
+<!-- ═══════════════════════════════ 他試合への適用 ═════════════════════ -->
+<h2 id="portability">🌍 他試合への適用ガイド</h2>
+
+<h3>データソース別の対応状況</h3>
+
+<table>
+  <thead>
+    <tr><th>プロバイダ</th><th>Tracking</th><th>Events</th><th>① 〜 ④ ⑦ ⑧ ⑩</th><th>⑤ ⑥</th><th>⑨ VAEP</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>SkillCorner</strong></td>
+      <td>✅ 10fps</td>
+      <td>✅ dynamic_events.csv</td>
+      <td>✅</td>
+      <td>✅</td>
+      <td>✅ ネイティブ</td>
+    </tr>
+    <tr>
+      <td><strong>Tracab</strong></td>
+      <td>✅ 25fps</td>
+      <td>❌ 別途</td>
+      <td>✅（変換必要）</td>
+      <td>⚠️ Possession 推定</td>
+      <td>❌ 代替実装必要</td>
+    </tr>
+    <tr>
+      <td><strong>Second Spectrum</strong></td>
+      <td>✅ 25fps</td>
+      <td>❌ 別途</td>
+      <td>✅（変換必要）</td>
+      <td>⚠️ Possession 推定</td>
+      <td>❌ 代替実装必要</td>
+    </tr>
+    <tr>
+      <td><strong>StatsBomb</strong></td>
+      <td>△ 一部試合のみ</td>
+      <td>✅ events.json</td>
+      <td>✅（tracking ある場合）</td>
+      <td>✅</td>
+      <td>⚠️ socceraction で自前計算</td>
+    </tr>
+    <tr>
+      <td><strong>Metrica（無料）</strong></td>
+      <td>✅ 25fps</td>
+      <td>✅ あり</td>
+      <td>✅（変換必要）</td>
+      <td>✅（変換必要）</td>
+      <td>⚠️ socceraction で自前計算</td>
+    </tr>
+    <tr>
+      <td><strong>Wyscout / Opta</strong></td>
+      <td>△</td>
+      <td>✅</td>
+      <td>tracking 次第</td>
+      <td>✅</td>
+      <td>⚠️ socceraction で自前計算</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>新試合の導入手順</h3>
+
+<div class="phase">
+  <h3>Step 1: トラッキングデータの形式確認</h3>
+  <ul style="padding-left:1.4em;color:#c0d4e8;font-size:.85rem">
+    <li><strong>座標系</strong>：[0,1] 正規化？ それとも実メートル？</li>
+    <li><strong>FPS</strong>：10 / 25 が一般的</li>
+    <li><strong>原点</strong>：左下？中央？</li>
+    <li><strong>選手番号</strong>：固定？ 入れ替わる？</li>
+    <li><strong>Home/Away の振り分け</strong></li>
+  </ul>
+</div>
+
+<div class="phase">
+  <h3>Step 2: 変換スクリプトを作成</h3>
+  <p style="font-size:.85rem">
+    既存の <code>convert_skillcorner_to_pipeline.py</code> を雛形にして、
+    プロバイダ別の <code>convert_xxx_to_pipeline.py</code> を作る。<br>
+    出力すべき形式（v22 が期待する CSV）:
+  </p>
+  <pre><code>frame, time_sec, ball_x, ball_y, is_goal_frame,
+Home_1_x, Home_1_y, ..., Home_11_x, Home_11_y,
+Away_1_x, Away_1_y, ..., Away_11_x, Away_11_y</code></pre>
+</div>
+
+<div class="phase phase-2">
+  <h3>Step 3: パイプライン実行</h3>
+  <pre><code>python xt_pipeline_22.py
+python xt_pipeline_23.py --gsa_extend Export_GSA_22players_30s.csv</code></pre>
+  <p style="font-size:.85rem">
+    → カラム ① 〜 ⑧ ⑩（📍 と 🎯）が自動生成される<br>
+    → ⑨ は events データがなければスキップされる
+  </p>
+</div>
+
+<div class="phase phase-3">
+  <h3>Step 4: GSA 投入</h3>
+  <p style="font-size:.85rem">
+    目的変数 (Δ Ball_xT 等) と説明変数 (xT・距離・速度・ラグ) はどの試合でも共通形式。<br>
+    SkillCorner 由来の VAEP 関連 (⑨) は使えないが、それ以外は問題なく動く。
+  </p>
+</div>
+
+<div class="success-box">
+  ✅ <strong>結論</strong>：トラッキングデータが手に入る試合なら、
+  カラムカタログの<strong>約 9割（450/500 カラム）</strong>が自動生成可能。<br>
+  SkillCorner 専用は <strong>カテゴリ⑨のみ</strong>。月曜以降の他試合導入も問題ありません。
+</div>
 
 
 <hr>
