@@ -2158,7 +2158,7 @@ streamlit run app_22.py
         xt_side = st.radio(
             "xTマップ表示チーム",
             ["Home", "Away", "両方"],
-            index=0,
+            index=2,
             horizontal=True,
             help="Home：ホーム攻撃方向(赤系) / Away：アウェイ攻撃方向(青系) / 両方：重ね表示",
             disabled=not show_xt,

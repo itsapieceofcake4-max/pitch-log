@@ -1699,7 +1699,7 @@ streamlit run app_23.py
         # ── xT display ────────────────────────────────────────────────────────
         st.markdown("### 表示設定")
         show_xt     = st.toggle("xTヒートマップ表示", value=True)
-        xt_side     = st.radio("xTマップ視点", ["Home", "Away", "両方"], horizontal=True)
+        xt_side     = st.radio("xTマップ視点", ["Home", "Away", "両方"], index=2, horizontal=True)
         trail_frames = st.slider("軌跡フレーム数", 0, 50, 10)
         show_home   = st.checkbox("Home 選手を表示", value=True)
         show_away   = st.checkbox("Away 選手を表示", value=True)
