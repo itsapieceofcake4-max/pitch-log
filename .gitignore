@@ -4,3 +4,7 @@ __pycache__/
 skillcorner_*/
 causal_scores_22.csv
 .streamlit/secrets.toml
+
+# Generated artifacts (reproducible from xt_pipeline_23.py)
+Export_GSA_22players_30s_gsa_extended.csv
+player_contributions_23.csv
