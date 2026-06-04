@@ -738,11 +738,11 @@ def _make_heatmap_traces(xt_map, xt_side):
         traces.append(go.Heatmap(
             z=xt_map.tolist(), x=xc.tolist(), y=yc.tolist(),
             colorscale=[
-                [0.00, "rgba(0,40,0,0)"],
-                [0.25, f"rgba(50,205,50,{0.18*h_op:.2f})"],
-                [0.50, f"rgba(255,215,0,{0.35*h_op:.2f})"],
-                [0.75, f"rgba(255,100,0,{0.55*h_op:.2f})"],
-                [1.00, f"rgba(200,0,30,{0.80*h_op:.2f})"],
+                [0.00, "rgba(0,20,60,0)"],
+                [0.25, f"rgba(90,170,255,{0.18*h_op:.2f})"],
+                [0.50, f"rgba(59,158,255,{0.38*h_op:.2f})"],
+                [0.75, f"rgba(30,100,235,{0.58*h_op:.2f})"],
+                [1.00, f"rgba(10,50,190,{0.82*h_op:.2f})"],
             ],
             zmin=0, zmax=zmax,
             showscale=(xt_side != "両方"),
@@ -756,11 +756,11 @@ def _make_heatmap_traces(xt_map, xt_side):
         traces.append(go.Heatmap(
             z=xt_map_away.tolist(), x=xc.tolist(), y=yc.tolist(),
             colorscale=[
-                [0.00, "rgba(0,0,60,0)"],
-                [0.25, f"rgba(0,100,255,{0.18*a_op:.2f})"],
-                [0.50, f"rgba(0,200,255,{0.35*a_op:.2f})"],
-                [0.75, f"rgba(100,0,255,{0.55*a_op:.2f})"],
-                [1.00, f"rgba(200,0,200,{0.80*a_op:.2f})"],
+                [0.00, "rgba(60,0,0,0)"],
+                [0.25, f"rgba(255,140,140,{0.18*a_op:.2f})"],
+                [0.50, f"rgba(255,85,85,{0.38*a_op:.2f})"],
+                [0.75, f"rgba(235,45,45,{0.58*a_op:.2f})"],
+                [1.00, f"rgba(180,0,0,{0.82*a_op:.2f})"],
             ],
             zmin=0, zmax=zmax,
             showscale=True,
