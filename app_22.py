@@ -1111,6 +1111,7 @@ def build_animated_fig(
             h_cd = [
                 [n,
                  int(row.get(f"Home_P{n}_GridID") or 0),
+                 int(row.get(f"Home_P{n}_ZoneID") or 0),
                  float(row.get(f"Home_P{n}_xT") or 0.0)]
                 for n in h_nums
             ]
@@ -1125,8 +1126,9 @@ def build_animated_fig(
                 customdata=h_cd,
                 hovertemplate=(
                     "<b>Home P%{customdata[0]}</b><br>"
+                    "Zone   : %{customdata[2]}<br>"
                     "GridID : %{customdata[1]}<br>"
-                    "xT     : %{customdata[2]:.4f}"
+                    "xT     : %{customdata[3]:.4f}"
                     "<extra></extra>"
                 ),
                 showlegend=False,
@@ -1141,6 +1143,7 @@ def build_animated_fig(
             a_cd = [
                 [n,
                  int(row.get(f"Away_P{n}_GridID") or 0),
+                 int(row.get(f"Away_P{n}_ZoneID") or 0),
                  float(row.get(f"Away_P{n}_xT") or 0.0)]
                 for n in a_nums
             ]
@@ -1155,8 +1158,9 @@ def build_animated_fig(
                 customdata=a_cd,
                 hovertemplate=(
                     "<b>Away P%{customdata[0]}</b><br>"
+                    "Zone   : %{customdata[2]}<br>"
                     "GridID : %{customdata[1]}<br>"
-                    "xT     : %{customdata[2]:.4f}"
+                    "xT     : %{customdata[3]:.4f}"
                     "<extra></extra>"
                 ),
                 showlegend=False,
@@ -1169,15 +1173,17 @@ def build_animated_fig(
         by  = row.get("Ball_Y",      np.nan)
         bxt = float(row.get("Ball_xT",     0) or 0)
         bgd = int(row.get("Ball_GridID",   0) or 0)
+        bzid = int(row.get("Ball_ZoneID",  0) or 0)
         out.append(go.Scatter(
             x=[float(bx) * PITCH_W] if pd.notna(bx) else [None],
             y=[float(by) * PITCH_H] if pd.notna(by) else [None],
             mode="markers",
             marker=dict(size=14, color="rgba(255,215,0,0.55)",
                         line=dict(color="#aaa", width=1.5)),
-            customdata=[[bxt, bgd]],
+            customdata=[[bxt, bgd, bzid]],
             hovertemplate=(
                 "<b>Ball</b><br>"
+                "Zone   : %{customdata[2]}<br>"
                 "GridID : %{customdata[1]}<br>"
                 "xT     : %{customdata[0]:.4f}"
                 "<extra></extra>"
@@ -1428,7 +1434,8 @@ def build_zone_animated_fig(
             hpx = [float(row.get(f"Home_P{n}_X", np.nan)) * PITCH_W for n in h_nums]
             hpy = [float(row.get(f"Home_P{n}_Y", np.nan)) * PITCH_H for n in h_nums]
             h_cd = [
-                [n, int(row.get(f"Home_P{n}_GridID") or 0), float(row.get(f"Home_P{n}_xT") or 0.0)]
+                [n, int(row.get(f"Home_P{n}_GridID") or 0),
+                 int(row.get(f"Home_P{n}_ZoneID") or 0), float(row.get(f"Home_P{n}_xT") or 0.0)]
                 for n in h_nums
             ]
             out.append(go.Scatter(
@@ -1441,8 +1448,9 @@ def build_zone_animated_fig(
                 customdata=h_cd,
                 hovertemplate=(
                     "<b>Home P%{customdata[0]}</b><br>"
+                    "Zone   : %{customdata[2]}<br>"
                     "GridID : %{customdata[1]}<br>"
-                    "xT     : %{customdata[2]:.4f}"
+                    "xT     : %{customdata[3]:.4f}"
                     "<extra></extra>"
                 ),
                 showlegend=False,
@@ -1455,7 +1463,8 @@ def build_zone_animated_fig(
             apx = [float(row.get(f"Away_P{n}_X", np.nan)) * PITCH_W for n in a_nums]
             apy = [float(row.get(f"Away_P{n}_Y", np.nan)) * PITCH_H for n in a_nums]
             a_cd = [
-                [n, int(row.get(f"Away_P{n}_GridID") or 0), float(row.get(f"Away_P{n}_xT") or 0.0)]
+                [n, int(row.get(f"Away_P{n}_GridID") or 0),
+                 int(row.get(f"Away_P{n}_ZoneID") or 0), float(row.get(f"Away_P{n}_xT") or 0.0)]
                 for n in a_nums
             ]
             out.append(go.Scatter(
@@ -1468,8 +1477,9 @@ def build_zone_animated_fig(
                 customdata=a_cd,
                 hovertemplate=(
                     "<b>Away P%{customdata[0]}</b><br>"
+                    "Zone   : %{customdata[2]}<br>"
                     "GridID : %{customdata[1]}<br>"
-                    "xT     : %{customdata[2]:.4f}"
+                    "xT     : %{customdata[3]:.4f}"
                     "<extra></extra>"
                 ),
                 showlegend=False,
@@ -1482,14 +1492,16 @@ def build_zone_animated_fig(
         by  = row.get("Ball_Y",    np.nan)
         bxt = float(row.get("Ball_xT",   0) or 0)
         bgd = int(row.get("Ball_GridID", 0) or 0)
+        bzid = int(row.get("Ball_ZoneID", 0) or 0)
         out.append(go.Scatter(
             x=[float(bx) * PITCH_W] if pd.notna(bx) else [None],
             y=[float(by) * PITCH_H] if pd.notna(by) else [None],
             mode="markers",
             marker=dict(size=14, color="rgba(255,215,0,0.55)", line=dict(color="#aaa", width=1.5)),
-            customdata=[[bxt, bgd]],
+            customdata=[[bxt, bgd, bzid]],
             hovertemplate=(
                 "<b>Ball</b><br>"
+                "Zone   : %{customdata[2]}<br>"
                 "GridID : %{customdata[1]}<br>"
                 "xT     : %{customdata[0]:.4f}"
                 "<extra></extra>"
@@ -2441,6 +2453,7 @@ streamlit run app_22.py
         rows_data.append({
             "チーム": "—", "選手": "Ball",
             "X": f"{row['Ball_X']:.5f}", "Y": f"{row['Ball_Y']:.5f}",
+            "Zone": row.get("Ball_ZoneID", pd.NA),
             "GridID": row["Ball_GridID"], "xT": f"{row['Ball_xT']:.5f}",
         })
         for n in h_nums:
@@ -2448,6 +2461,7 @@ streamlit run app_22.py
                 "チーム": "Home", "選手": f"P{n}",
                 "X":      f"{row.get(f'Home_P{n}_X', np.nan):.5f}",
                 "Y":      f"{row.get(f'Home_P{n}_Y', np.nan):.5f}",
+                "Zone":   row.get(f"Home_P{n}_ZoneID", pd.NA),
                 "GridID": row.get(f"Home_P{n}_GridID", pd.NA),
                 "xT":     f"{row.get(f'Home_P{n}_xT', np.nan):.5f}",
             })
@@ -2456,6 +2470,7 @@ streamlit run app_22.py
                 "チーム": "Away", "選手": f"P{n}",
                 "X":      f"{row.get(f'Away_P{n}_X', np.nan):.5f}",
                 "Y":      f"{row.get(f'Away_P{n}_Y', np.nan):.5f}",
+                "Zone":   row.get(f"Away_P{n}_ZoneID", pd.NA),
                 "GridID": row.get(f"Away_P{n}_GridID", pd.NA),
                 "xT":     f"{row.get(f'Away_P{n}_xT', np.nan):.5f}",
             })

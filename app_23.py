@@ -877,6 +877,7 @@ def build_animated_fig(
             hpx = [float(row.get(f"Home_P{n}_X", np.nan)) * PITCH_W for n in h_nums]
             hpy = [float(row.get(f"Home_P{n}_Y", np.nan)) * PITCH_H for n in h_nums]
             h_cd = [[n, int(row.get(f"Home_P{n}_GridID") or 0),
+                     int(row.get(f"Home_P{n}_ZoneID") or 0),
                      float(row.get(f"Home_P{n}_xT") or 0.0)] for n in h_nums]
             out.append(go.Scatter(x=hpx, y=hpy, mode="markers+text",
                                   marker=dict(size=22, color=COLOR_HOME, line=dict(color="white", width=1.8)),
@@ -884,7 +885,7 @@ def build_animated_fig(
                                   textfont=dict(color="white", size=10, family="Arial Black"),
                                   textposition="middle center",
                                   customdata=h_cd,
-                                  hovertemplate="<b>Home P%{customdata[0]}</b><br>GridID : %{customdata[1]}<br>xT : %{customdata[2]:.4f}<extra></extra>",
+                                  hovertemplate="<b>Home P%{customdata[0]}</b><br>Zone : %{customdata[2]}<br>GridID : %{customdata[1]}<br>xT : %{customdata[3]:.4f}<extra></extra>",
                                   showlegend=False))
         else:
             out.append(go.Scatter(x=[], y=[], mode="markers", showlegend=False, hoverinfo="skip"))
@@ -893,6 +894,7 @@ def build_animated_fig(
             apx = [float(row.get(f"Away_P{n}_X", np.nan)) * PITCH_W for n in a_nums]
             apy = [float(row.get(f"Away_P{n}_Y", np.nan)) * PITCH_H for n in a_nums]
             a_cd = [[n, int(row.get(f"Away_P{n}_GridID") or 0),
+                     int(row.get(f"Away_P{n}_ZoneID") or 0),
                      float(row.get(f"Away_P{n}_xT") or 0.0)] for n in a_nums]
             out.append(go.Scatter(x=apx, y=apy, mode="markers+text",
                                   marker=dict(size=22, color=COLOR_AWAY, line=dict(color="white", width=1.8)),
@@ -900,7 +902,7 @@ def build_animated_fig(
                                   textfont=dict(color="white", size=10, family="Arial Black"),
                                   textposition="middle center",
                                   customdata=a_cd,
-                                  hovertemplate="<b>Away P%{customdata[0]}</b><br>GridID : %{customdata[1]}<br>xT : %{customdata[2]:.4f}<extra></extra>",
+                                  hovertemplate="<b>Away P%{customdata[0]}</b><br>Zone : %{customdata[2]}<br>GridID : %{customdata[1]}<br>xT : %{customdata[3]:.4f}<extra></extra>",
                                   showlegend=False))
         else:
             out.append(go.Scatter(x=[], y=[], mode="markers", showlegend=False, hoverinfo="skip"))
@@ -909,13 +911,14 @@ def build_animated_fig(
         by  = row.get("Ball_Y", np.nan)
         bxt = float(row.get("Ball_xT", 0) or 0)
         bgd = int(row.get("Ball_GridID", 0) or 0)
+        bzid = int(row.get("Ball_ZoneID", 0) or 0)
         out.append(go.Scatter(
             x=[float(bx) * PITCH_W] if pd.notna(bx) else [None],
             y=[float(by) * PITCH_H] if pd.notna(by) else [None],
             mode="markers",
             marker=dict(size=14, color="rgba(255,215,0,0.55)", line=dict(color="#aaa", width=1.5)),
-            customdata=[[bxt, bgd]],
-            hovertemplate="<b>Ball</b><br>GridID : %{customdata[1]}<br>xT : %{customdata[0]:.4f}<extra></extra>",
+            customdata=[[bxt, bgd, bzid]],
+            hovertemplate="<b>Ball</b><br>Zone : %{customdata[2]}<br>GridID : %{customdata[1]}<br>xT : %{customdata[0]:.4f}<extra></extra>",
             showlegend=False))
         return out
 
@@ -992,13 +995,14 @@ def build_zone_animated_fig(
             hpx = [float(row.get(f"Home_P{n}_X", np.nan)) * PITCH_W for n in h_nums]
             hpy = [float(row.get(f"Home_P{n}_Y", np.nan)) * PITCH_H for n in h_nums]
             h_cd = [[n, int(row.get(f"Home_P{n}_GridID") or 0),
+                     int(row.get(f"Home_P{n}_ZoneID") or 0),
                      float(row.get(f"Home_P{n}_xT") or 0.0)] for n in h_nums]
             out.append(go.Scatter(x=hpx, y=hpy, mode="markers+text",
                                   marker=dict(size=22, color=COLOR_HOME, line=dict(color="white", width=1.8)),
                                   text=[str(n) for n in h_nums],
                                   textfont=dict(color="white", size=10, family="Arial Black"),
                                   textposition="middle center", customdata=h_cd,
-                                  hovertemplate="<b>Home P%{customdata[0]}</b><br>GridID : %{customdata[1]}<br>xT : %{customdata[2]:.4f}<extra></extra>",
+                                  hovertemplate="<b>Home P%{customdata[0]}</b><br>Zone : %{customdata[2]}<br>GridID : %{customdata[1]}<br>xT : %{customdata[3]:.4f}<extra></extra>",
                                   showlegend=False))
         else:
             out.append(go.Scatter(x=[], y=[], mode="markers", showlegend=False, hoverinfo="skip"))
@@ -1007,13 +1011,14 @@ def build_zone_animated_fig(
             apx = [float(row.get(f"Away_P{n}_X", np.nan)) * PITCH_W for n in a_nums]
             apy = [float(row.get(f"Away_P{n}_Y", np.nan)) * PITCH_H for n in a_nums]
             a_cd = [[n, int(row.get(f"Away_P{n}_GridID") or 0),
+                     int(row.get(f"Away_P{n}_ZoneID") or 0),
                      float(row.get(f"Away_P{n}_xT") or 0.0)] for n in a_nums]
             out.append(go.Scatter(x=apx, y=apy, mode="markers+text",
                                   marker=dict(size=22, color=COLOR_AWAY, line=dict(color="white", width=1.8)),
                                   text=[str(n) for n in a_nums],
                                   textfont=dict(color="white", size=10, family="Arial Black"),
                                   textposition="middle center", customdata=a_cd,
-                                  hovertemplate="<b>Away P%{customdata[0]}</b><br>GridID : %{customdata[1]}<br>xT : %{customdata[2]:.4f}<extra></extra>",
+                                  hovertemplate="<b>Away P%{customdata[0]}</b><br>Zone : %{customdata[2]}<br>GridID : %{customdata[1]}<br>xT : %{customdata[3]:.4f}<extra></extra>",
                                   showlegend=False))
         else:
             out.append(go.Scatter(x=[], y=[], mode="markers", showlegend=False, hoverinfo="skip"))
@@ -1022,13 +1027,14 @@ def build_zone_animated_fig(
         by  = row.get("Ball_Y", np.nan)
         bxt = float(row.get("Ball_xT", 0) or 0)
         bgd = int(row.get("Ball_GridID", 0) or 0)
+        bzid = int(row.get("Ball_ZoneID", 0) or 0)
         out.append(go.Scatter(
             x=[float(bx) * PITCH_W] if pd.notna(bx) else [None],
             y=[float(by) * PITCH_H] if pd.notna(by) else [None],
             mode="markers",
             marker=dict(size=14, color="rgba(255,215,0,0.55)", line=dict(color="#aaa", width=1.5)),
-            customdata=[[bxt, bgd]],
-            hovertemplate="<b>Ball</b><br>GridID : %{customdata[1]}<br>xT : %{customdata[0]:.4f}<extra></extra>",
+            customdata=[[bxt, bgd, bzid]],
+            hovertemplate="<b>Ball</b><br>Zone : %{customdata[2]}<br>GridID : %{customdata[1]}<br>xT : %{customdata[0]:.4f}<extra></extra>",
             showlegend=False))
 
         # LBP arrow + passer/receiver glow
