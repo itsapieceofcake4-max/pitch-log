@@ -44,6 +44,13 @@ import pandas as pd
 X_BINS        = 105
 Y_BINS        = 68
 WINDOW_SEC    = 30
+
+# Zone_ID grid (absolute spatial label; coexists with X/Y/GridID)
+#   Zone_ID = depth_band * 100 + width_row
+#     depth_band : X方向 21分割  1(左ゴール) … 21(右ゴール)
+#     width_row  : Y方向 14分割  0(上) … 13(下)
+ZONE_DEPTH_BANDS = 21
+ZONE_WIDTH_ROWS  = 14
 # FPS and WINDOW_FRAMES are inferred from the data at runtime (see auto_detect_fps)
 
 XT_MAP_CSV    = "xT_BaseMap_105x68.csv"
@@ -72,6 +79,22 @@ def coord_to_bin(x_norm: np.ndarray, y_norm: np.ndarray):
 
 def compute_grid_id(xi: np.ndarray, yi: np.ndarray) -> np.ndarray:
     return xi + yi * X_BINS + 1   # 1-based, 1..7140
+
+
+def compute_zone_id(x_norm, y_norm) -> "pd.array":
+    """
+    Zone_ID = depth_band * 100 + width_row   (absolute, same for every subject).
+      depth_band : floor(x_norm * 21) + 1   → 1(左) … 21(右)
+      width_row  : floor((1 - y_norm) * 14) → 0(上) … 13(下)
+    Returns a nullable Int64 array (pd.NA where x/y is missing).
+    """
+    x = pd.to_numeric(pd.Series(x_norm), errors="coerce").to_numpy(dtype=float)
+    y = pd.to_numeric(pd.Series(y_norm), errors="coerce").to_numpy(dtype=float)
+    valid = ~(np.isnan(x) | np.isnan(y))
+    band = np.clip(np.floor(np.where(valid, x, 0) * ZONE_DEPTH_BANDS), 0, ZONE_DEPTH_BANDS - 1) + 1
+    row  = np.clip(np.floor((1 - np.where(valid, y, 0)) * ZONE_WIDTH_ROWS), 0, ZONE_WIDTH_ROWS - 1)
+    zid  = band * 100 + row
+    return pd.array(np.where(valid, zid, pd.NA), dtype=pd.Int64Dtype())
 
 
 def lookup_xt(xt_map: np.ndarray, xi: np.ndarray, yi: np.ndarray) -> np.ndarray:
@@ -278,22 +301,25 @@ def reformat_to_22player_schema(
     out["Ball_X"]      = window["ball_x"].round(5).values
     out["Ball_Y"]      = window["ball_y"].round(5).values
     out["Ball_GridID"] = window["ball_GridID"].values
+    out["Ball_ZoneID"] = compute_zone_id(out["Ball_X"], out["Ball_Y"])
     out["Ball_xT"]     = window["ball_xT"].round(5).values
 
-    # Home players (11 × 4 = 44 cols)
+    # Home players (11 × 5 cols)
     for i in range(1, 12):
         src = f"Home_{i}"
         out[f"Home_P{i}_X"]      = window[f"{src}_x"].round(5).values
         out[f"Home_P{i}_Y"]      = window[f"{src}_y"].round(5).values
         out[f"Home_P{i}_GridID"] = window[f"{src}_GridID"].values
+        out[f"Home_P{i}_ZoneID"] = compute_zone_id(out[f"Home_P{i}_X"], out[f"Home_P{i}_Y"])
         out[f"Home_P{i}_xT"]     = window[f"{src}_xT"].round(5).values
 
-    # Away players (11 × 4 = 44 cols)
+    # Away players (11 × 5 cols)
     for i in range(1, 12):
         src = f"Away_{i}"
         out[f"Away_P{i}_X"]      = window[f"{src}_x"].round(5).values
         out[f"Away_P{i}_Y"]      = window[f"{src}_y"].round(5).values
         out[f"Away_P{i}_GridID"] = window[f"{src}_GridID"].values
+        out[f"Away_P{i}_ZoneID"] = compute_zone_id(out[f"Away_P{i}_X"], out[f"Away_P{i}_Y"])
         out[f"Away_P{i}_xT"]     = window[f"{src}_xT"].round(5).values
 
     # Team aggregate xT (4 cols)
