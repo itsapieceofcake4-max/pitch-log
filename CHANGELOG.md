@@ -9,6 +9,8 @@
 
 ## 2026-06-06
 
+- **TOPハブ `app_top.py` 新規**：v22/v23/v24/取説 への入口を1枚に集約。アプリ比較(VERSIONS)と変更履歴(CHANGELOG)をタブで同居表示。
+- アプリ特徴整理 `docs/VERSIONS.md` と変更履歴 `CHANGELOG.md` を追加。push前にCHANGELOG追記する運用ルールを明文化。 (46b2ddb)
 - app_22 / app_23 の同一画面下部に「試合全体モメンタム」を埋め込み。共通ロジックを `match_momentum.py` に集約（重複排除）。app_24 はモジュールを使う薄いラッパーに整理。 (73292f7)
 - **app_24（v24）新規**：試合全体モメンタムビュー。インタラクティブ Plotly チャート（xT added）、net/正のみ切替、ローリング窓スライダー、ピンチ/チャンス/ゴール自動抽出、ボックス選択で区間抽出＋CSVダウンロード、ズーム解除。`build_match_phases.py` で `match_phases_summary.csv` を生成（cloud用に同梱）。 (e84d023)
 
