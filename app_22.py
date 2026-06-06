@@ -2477,6 +2477,16 @@ streamlit run app_22.py
 
         st.dataframe(pd.DataFrame(rows_data), use_container_width=True, hide_index=True)
 
+    # ── 試合全体モメンタム（90分・xT added）───────────────────────────────────
+    st.divider()
+    st.markdown("## 📈 試合全体モメンタム（90分）")
+    st.caption("このシーンが試合全体のどの局面か俯瞰。ピンチ・チャンス・ゴールを時系列で確認できます。")
+    try:
+        import match_momentum
+        match_momentum.render_momentum("match_phases_summary.csv", key_prefix="mom22")
+    except Exception as _e:
+        st.info(f"モメンタム表示を読み込めませんでした: {_e}")
+
     st.markdown(
         "<p style='text-align:center;color:#30363d;font-size:.7rem;margin-top:1rem'>"
         "Pitch Log | Phase 4 Extended | 22-Player xT × Causal Analysis Platform</p>",

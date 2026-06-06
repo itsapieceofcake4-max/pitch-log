@@ -2034,6 +2034,16 @@ streamlit run app_23.py
     # ── v23 VAEP panel ─────────────────────────────────────────────────────────
     render_v23_panel(contrib_df)
 
+    # ── 試合全体モメンタム（90分・xT added）───────────────────────────────────
+    st.divider()
+    st.markdown("## 📈 試合全体モメンタム（90分）")
+    st.caption("このシーンが試合全体のどの局面か俯瞰。ピンチ・チャンス・ゴールを時系列で確認できます。")
+    try:
+        import match_momentum
+        match_momentum.render_momentum("match_phases_summary.csv", key_prefix="mom23")
+    except Exception as _e:
+        st.info(f"モメンタム表示を読み込めませんでした: {_e}")
+
     st.markdown(
         "<p style='text-align:center;color:#30363d;font-size:.7rem;margin-top:1rem'>"
         "Pitch Log v23 | xT × VAEP × Off-ball × Defensive Analysis</p>",
