@@ -29,11 +29,18 @@ def load_phases(path: str) -> pd.DataFrame:
 
 
 def rolling_and_cumulative(df: pd.DataFrame, win: float = 5.0,
-                           positive_only: bool = False, step: float = 0.25):
+                           positive_only: bool = False, step: float = 0.25,
+                           use_abs_xt: bool = False):
     grid = np.arange(0, float(df["t_min"].max()) + 1, step)
-    gain = df["xt_gain"].values if "xt_gain" in df else np.abs(df["signed"].values)
-    sign = np.sign(df["signed"].values)
-    contrib = np.clip(gain, 0, None) * sign if positive_only else df["signed"].values
+    if use_abs_xt and "xt_end" in df.columns:
+        # 絶対位置脅威モード: xt_end × 符号（Home=+ / Away=-）
+        sign = np.where(df["team"].values == "Home", 1.0, -1.0)
+        base = df["xt_end"].values * sign
+    else:
+        base = df["signed"].values
+    gain = np.abs(base)
+    sign_v = np.sign(base)
+    contrib = np.clip(gain, 0, None) * sign_v if positive_only else base
     t = df["t_min"].values
     roll = np.array([contrib[(t > g - win) & (t <= g)].sum() for g in grid])
     cum  = np.array([contrib[t <= g].sum() for g in grid])
@@ -41,8 +48,10 @@ def rolling_and_cumulative(df: pd.DataFrame, win: float = 5.0,
 
 
 def build_momentum_fig(df: pd.DataFrame, win: float = 5.0,
-                       positive_only: bool = False) -> go.Figure:
-    grid, roll, cum = rolling_and_cumulative(df, win=win, positive_only=positive_only)
+                       positive_only: bool = False,
+                       use_abs_xt: bool = False) -> go.Figure:
+    grid, roll, cum = rolling_and_cumulative(df, win=win, positive_only=positive_only,
+                                             use_abs_xt=use_abs_xt)
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=grid, y=np.clip(roll, 0, None), mode="lines",
                   line=dict(color=C_HOME, width=0.5), fill="tozeroy",
@@ -83,7 +92,7 @@ def build_momentum_fig(df: pd.DataFrame, win: float = 5.0,
         margin=dict(l=10, r=10, t=20, b=40),
         xaxis=dict(title="試合時間（分）", color="#b0c8e0",
                    gridcolor="rgba(255,255,255,0.06)", zeroline=False),
-        yaxis=dict(title=f"xT added（{win:.0f}分窓 / 点線=累積）", color="#b0c8e0",
+        yaxis=dict(title=f"{'xT位置' if use_abs_xt else 'ΔxT'}（{win:.0f}分窓 / 点線=累積）", color="#b0c8e0",
                    gridcolor="rgba(255,255,255,0.06)", zeroline=False),
         legend=dict(orientation="h", y=-0.2, font=dict(color="white", size=10),
                     bgcolor="rgba(0,0,0,0.3)"),
@@ -101,18 +110,23 @@ def render_momentum(path: str = "match_phases_summary.csv", key_prefix: str = "m
 
     # ── inline controls ──
     c1, c2, c3 = st.columns([2, 2, 3])
-    mode = c1.radio("ΔxT の数え方", ["net（正負あり）", "正の増加だけ"],
+    metric_mode = c1.radio(
+        "モメンタム指標",
+        ["ΔxT（移動量）", "xT位置（絶対脅威）"],
+        horizontal=True, key=f"{key_prefix}_metric",
+        help="ΔxT=どれだけ危険ゾーンへ移動したか / xT位置=どれだけ危険な場所にいるか（ゴール前の膠着を正しく評価）")
+    use_abs_xt = metric_mode == "xT位置（絶対脅威）"
+    mode = c2.radio("符号の扱い", ["net（正負あり）", "正の増加だけ"],
                     horizontal=True, key=f"{key_prefix}_mode",
                     help="net=territoryの押し引き / 正のみ=攻撃の脅威創出")
     positive_only = mode == "正の増加だけ"
-    win = c2.slider("ローリング窓（分）", 1, 15, 5, key=f"{key_prefix}_win",
+    win = c3.slider("ローリング窓（分）", 1, 15, 5, key=f"{key_prefix}_win",
                     help="短い=瞬間の振れに敏感 / 長い=持続的支配が滑らか")
-    with c3:
-        st.caption("キーモーメント表示")
-        fc1, fc2, fc3 = st.columns(3)
-        show_goal   = fc1.checkbox("⚽", value=True, key=f"{key_prefix}_g")
-        show_chance = fc2.checkbox("🔵", value=True, key=f"{key_prefix}_c")
-        show_pinch  = fc3.checkbox("🔴", value=True, key=f"{key_prefix}_p")
+    kc1, kc2, kc3, kc4 = st.columns(4)
+    kc1.caption("キーモーメント表示")
+    show_goal   = kc2.checkbox("⚽", value=True, key=f"{key_prefix}_g")
+    show_chance = kc3.checkbox("🔵", value=True, key=f"{key_prefix}_c")
+    show_pinch  = kc4.checkbox("🔴", value=True, key=f"{key_prefix}_p")
 
     # ── metrics ──
     home_xt = df.loc[df["team"] == "Home", "xt_gain"].sum() if "xt_gain" in df else 0
@@ -132,7 +146,7 @@ def render_momentum(path: str = "match_phases_summary.csv", key_prefix: str = "m
     st.caption("💡 ドラッグで拡大ズーム ／ モードバーの ⬚ ボックス選択 で区間抽出 ／ "
                "ダブルクリック（🏠）でズーム解除")
     ev = st.plotly_chart(
-        build_momentum_fig(df, win=win, positive_only=positive_only),
+        build_momentum_fig(df, win=win, positive_only=positive_only, use_abs_xt=use_abs_xt),
         use_container_width=True, key=f"{key_prefix}_chart",
         on_select="rerun", selection_mode=["box", "lasso"],
         config={"displayModeBar": True, "displaylogo": False,
