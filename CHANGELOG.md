@@ -9,7 +9,7 @@
 
 ## 2026-06-10
 
-- SoccerNet 連携を整備：取得 `docs/soccernet_download.py`／展開・確認 `docs/soccernet_inspect.py`／GSR→Pitch Log変換 `docs/soccernet_to_pitchlog.py`（Labels-GameState.json の bbox_pitch を長形式トラッキングCSVへ。座標はメートル・中心原点で phase_xt と同系）／xT付与 `docs/soccernet_add_xt.py`（攻撃方向をGK位置から推定し選手別xTを付与）。GSR test split（49クリップ・各30秒/750frame）で検証済み（SNGS-116でxT向き付け確認）。`DATASETS.md` に NDA 登録手順を追記。
+- SoccerNet 連携を整備：取得 `docs/soccernet_download.py`／展開・確認 `docs/soccernet_inspect.py`／GSR→Pitch Log変換 `docs/soccernet_to_pitchlog.py`（Labels-GameState.json の bbox_pitch を長形式トラッキングCSVへ。座標はメートル・中心原点で phase_xt と同系）／xT付与 `docs/soccernet_add_xt.py`（攻撃方向をGK位置から推定し選手別xTを付与）／実データ貢献度レポート `docs/make_realdata_report.py`（選手別 平均xT ランキング＋チーム脅威推移をテンプレ様式pptxで出力）。GSR test split（49クリップ・各30秒/750frame）で検証済み（SNGS-116でxT向き付け＆貢献度ランキング確認）。生成pptxはNDAデータ由来のためコミットせずローカル保持（スクリプトから再生成可）。`DATASETS.md` に NDA 登録手順を追記。
 - 提案レポート v2 `docs/Pitch_Log_Report_v2.pptx`（生成: `docs/make_report_v2.py`）を追加。MAZDAテンプレ様式（白/緑/游ゴシック・10x5.625in、原本 `docs/TEMPLATE_PitchLog_MAZDA.pptx`）。「不在だと連鎖が途切れる」画を主役にした攻撃編＋守備編＋主張＋因果の根拠の4枚。今後の pptx はこのテンプレに統一。
 - 提案3枚版 `docs/Pitch_Log_Report_3p.pptx`（生成: `docs/make_report_3p.py`）を追加。レポート中心の構成（1=主張「なぜ必要か／因果である」 2=出力レポートのサンプル 3=因果である根拠）。
 - 顧客提案スライド `docs/Pitch_Log_Proposal.pptx`（全11枚）を追加。生成スクリプト `docs/make_proposal_pptx.py`。①レーダー→因果6軸→②因果ビュー→連鎖断絶→③シミュレータ→差別化→まとめ の構成。
