@@ -9,6 +9,7 @@
 
 ## 2026-06-10
 
+- 提案レポート v2 `docs/Pitch_Log_Report_v2.pptx`（生成: `docs/make_report_v2.py`）を追加。MAZDAテンプレ様式（白/緑/游ゴシック・10x5.625in、原本 `docs/TEMPLATE_PitchLog_MAZDA.pptx`）。「不在だと連鎖が途切れる」画を主役にした攻撃編＋守備編＋主張＋因果の根拠の4枚。今後の pptx はこのテンプレに統一。
 - 提案3枚版 `docs/Pitch_Log_Report_3p.pptx`（生成: `docs/make_report_3p.py`）を追加。レポート中心の構成（1=主張「なぜ必要か／因果である」 2=出力レポートのサンプル 3=因果である根拠）。
 - 顧客提案スライド `docs/Pitch_Log_Proposal.pptx`（全11枚）を追加。生成スクリプト `docs/make_proposal_pptx.py`。①レーダー→因果6軸→②因果ビュー→連鎖断絶→③シミュレータ→差別化→まとめ の構成。
 - `docs/DATASETS.md` を追加。公開トラッキングデータ（映像有無・入手方法）比較表＋ feature_catalog.pptx の10カテゴリ指標が各データで作れるかの対応表。
