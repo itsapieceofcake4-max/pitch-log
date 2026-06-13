@@ -14,11 +14,12 @@ from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 from pptx.enum.shapes import MSO_SHAPE
 from pptx.enum.dml import MSO_LINE_DASH_STYLE
+from pptx.oxml.ns import qn
 
 # ---- テンプレ デザイントークン ----
 WHITE="FFFFFF"; GREEN="1E5C3F"; GREENLT="EAF3EE"; INK="1F2A26"; MUTE="5A6663"
 FAINT="9AA5A1"; GRAYROW="F6F7F6"; BORDER="D7E2DC"; RED="C0443A"; REDLT="F7ECEA"
-JP="游ゴシック"
+JP="ＭＳ Ｐゴシック"
 
 
 def C(h): return RGBColor.from_string(h)
@@ -44,6 +45,12 @@ def text(s,t,x,y,w,h,size,color=INK,bold=False,align=PP_ALIGN.LEFT,anchor=MSO_AN
         p.alignment=align; p.line_spacing=spacing
         r=p.add_run(); r.text=ln
         f=r.font; f.size=Pt(size); f.bold=bold; f.name=JP; f.color.rgb=C(color)
+        rPr=r._r.get_or_add_rPr()
+        for tag in ('a:ea','a:cs'):
+            el=rPr.find(qn(tag))
+            if el is None:
+                el=rPr.makeelement(qn(tag),{}); rPr.append(el)
+            el.set('typeface',JP)
     return tb
 
 
