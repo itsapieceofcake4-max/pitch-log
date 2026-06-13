@@ -63,6 +63,19 @@
 - 既存パイプライン: `convert_skillcorner_to_pipeline.py`（SkillCorner 形式 → pipeline 入力）。
 - SoccerNet / PFF を使う場合は、各フォーマット → `Sample_TrackingData_22.csv` 互換（frame, ball_x/y, {team}_{n}_x/y, 0〜1正規化）への変換アダプタを足す。
 
+## SoccerNet 登録・取得手順
+
+映像が手に入る唯一の選択肢。NDA同意（無料）が必要。
+
+1. **NDA フォーム提出**（本人が記入。氏名・メール・所属・利用目的）:
+   <https://docs.google.com/forms/d/e/1FAIpQLSfYFqjZNm4IgwGnyJXDPk2Ko_lZcbVtYX73w5lf6din5nxfmA/viewform>
+2. **メールで映像DL用パスワード受領**（迷惑メールも確認）。
+3. `pip install SoccerNet` → `docs/soccernet_download.py` で取得。
+   - トラッキング/座標・アノテーションは**パスワード不要**。
+   - 放送映像本体（`*.mkv`）だけ NDA パスワード必須（環境変数 `SOCCERNET_PASSWORD`）。
+   - 主な task: `tracking-2023`（放送トラッキング）／`gamestate-2024`（GSR ミニマップ座標）。
+   - 例: `python docs/soccernet_download.py --dir D:\soccernet --tracking`
+
 ## 出典
 
 - [SoccerNet – Data](https://www.soccer-net.org/data) / [sn-tracking](https://github.com/SoccerNet/sn-tracking) / [SoccerNet-GSR (arXiv)](https://arxiv.org/abs/2404.11335)
