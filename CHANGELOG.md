@@ -7,6 +7,10 @@
 
 ---
 
+## 2026-06-14
+
+- PoC: `batch_skillcorner_to_gsa.py` を追加。SkillCorner Open Data（A-League 10試合）→ GSA入力（Export_GSA 126列形式）を一括生成。各ゴール直前30秒(300frame@10fps)窓を切り出し、player_id↔roster.id 結合・attacking_side で攻撃方向補正・連続lead_to_goalフェーズの畳み込み。10試合=28ゴール窓を出力（ゴール数はスコアと完全一致）。xt_pipeline_22 の関数を再利用。実データはリポジトリ外（C:\skillcorner_opendata, C:\skillcorner_gsa）。
+
 ## 2026-06-10
 
 - SoccerNet 連携を整備：取得 `docs/soccernet_download.py`／展開・確認 `docs/soccernet_inspect.py`／GSR→Pitch Log変換 `docs/soccernet_to_pitchlog.py`（Labels-GameState.json の bbox_pitch を長形式トラッキングCSVへ。座標はメートル・中心原点で phase_xt と同系）／xT付与 `docs/soccernet_add_xt.py`（攻撃方向をGK位置から推定し選手別xTを付与）／実データ貢献度レポート `docs/make_realdata_report.py`（選手別 平均xT ランキング＋チーム脅威推移をテンプレ様式pptxで出力）。GSR test split（49クリップ・各30秒/750frame）で検証済み（SNGS-116でxT向き付け＆貢献度ランキング確認）。生成pptxはNDAデータ由来のためコミットせずローカル保持（スクリプトから再生成可）。`DATASETS.md` に NDA 登録手順を追記。
