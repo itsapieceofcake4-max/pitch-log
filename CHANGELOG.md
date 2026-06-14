@@ -9,6 +9,7 @@
 
 ## 2026-06-14
 
+- 全特徴量付与 `enrich_gsa_features.py` を追加。Export_GSA(126列) に feature_catalog 全10カテゴリを付与（自前計算: ①速度②距離③形状④ゾーン⑦個人xT変化⑧ラグ⑩目的変数／dynamic_events・phases結合: ⑤所有局面⑥パス⑨events連動・off-ballラン種別）。1925299のゴールシーンで585列を出力（off-ball run subtype: overlap/cross_receiver等まで実データで取得）。※③ interline(DF-MF-FW by role)のみ未対応（スロットがjersey順のため要role結合）。
 - PoC: `batch_skillcorner_to_gsa.py` を追加。SkillCorner Open Data（A-League 10試合）→ GSA入力（Export_GSA 126列形式）を一括生成。各ゴール直前30秒(300frame@10fps)窓を切り出し、player_id↔roster.id 結合・attacking_side で攻撃方向補正・連続lead_to_goalフェーズの畳み込み。10試合=28ゴール窓を出力（ゴール数はスコアと完全一致）。xt_pipeline_22 の関数を再利用。実データはリポジトリ外（C:\skillcorner_opendata, C:\skillcorner_gsa）。
 
 ## 2026-06-10
