@@ -1225,7 +1225,7 @@ def build_animated_fig(
                    scaleanchor="x", scaleratio=1,
                    color="white", title="", fixedrange=True),
         margin=dict(l=5, r=50, t=10, b=100),
-        height=590,
+        height=760,
         dragmode=False,
         showlegend=False,
         updatemenus=[{
@@ -1585,7 +1585,7 @@ def build_zone_animated_fig(
                    scaleanchor="x", scaleratio=1,
                    color="white", title="", fixedrange=True),
         margin=dict(l=5, r=50, t=10, b=100),
-        height=590,
+        height=760,
         dragmode=False,
         showlegend=False,
         updatemenus=[{
@@ -2407,42 +2407,42 @@ streamlit run app_22.py
 
     st.divider()
 
-    # ── two-panel layout ──────────────────────────────────────────────────────
-    col_l, col_r = st.columns([11, 9], gap="medium")
+    # ── full-width pitch animation ────────────────────────────────────────────
+    if zone_mode:
+        st.markdown("#### ゾーン別ピッチビュー  🟢 LBP検知  🔵 Home  🔴 Away")
+        st.caption(
+            "Zone1: セーフ (X<33%) | Zone2: ビルド (33-66%) | "
+            "Zone3: アタッキングサード (X>66%) | 緑矢印: ラインブレイクパス"
+        )
+        fig_pitch = build_zone_animated_fig(
+            xt_path, scene_path, show_xt, trail_frames, fps,
+            show_home=show_home, show_away=show_away, xt_side=xt_side,
+        )
+    else:
+        st.markdown("#### ピッチビュー  🔵 Home  🔴 Away  🟡 Ball")
+        st.caption("▶/⏸/×0.5/×1/×2/×4/⏮ で操作 | スライダーでコマ送り | ホバーで詳細表示")
+        fig_pitch = build_animated_fig(
+            xt_path, scene_path, show_xt, trail_frames, fps,
+            show_home=show_home, show_away=show_away, xt_side=xt_side,
+        )
+    st.plotly_chart(fig_pitch, use_container_width=True,
+                    config={"displayModeBar": False})
 
+    st.divider()
+
+    # ── analysis panels (below the pitch, two columns) ─────────────────────────
+    col_l, col_r = st.columns(2, gap="medium")
     with col_l:
-        if zone_mode:
-            st.markdown("#### ゾーン別ピッチビュー  🟢 LBP検知  🔵 Home  🔴 Away")
-            st.caption(
-                "Zone1: セーフ (X<33%) | Zone2: ビルド (33-66%) | "
-                "Zone3: アタッキングサード (X>66%) | 緑矢印: ラインブレイクパス"
-            )
-            fig_pitch = build_zone_animated_fig(
-                xt_path, scene_path, show_xt, trail_frames, fps,
-                show_home=show_home, show_away=show_away, xt_side=xt_side,
-            )
-        else:
-            st.markdown("#### ピッチビュー  🔵 Home  🔴 Away  🟡 Ball")
-            st.caption("▶/⏸/×0.5/×1/×2/×4/⏮ で操作 | スライダーでコマ送り | ホバーで詳細表示")
-            fig_pitch = build_animated_fig(
-                xt_path, scene_path, show_xt, trail_frames, fps,
-                show_home=show_home, show_away=show_away, xt_side=xt_side,
-            )
-        st.plotly_chart(fig_pitch, use_container_width=True,
-                        config={"displayModeBar": False})
-
-    with col_r:
         if zone_mode:
             st.markdown("#### ラインブレイクパス検知アラート")
             lbp_df = _compute_lbp_inapp(df, fps, h_nums, a_nums)
             render_lbp_alerts(lbp_df)
             st.divider()
-
         st.markdown("#### xT タイムライン（30秒全体）")
         fig_line = build_timeline_fig(df, sel_home, sel_away, h_nums, a_nums, time_offset)
         st.plotly_chart(fig_line, use_container_width=True,
                         config={"displayModeBar": False})
-
+    with col_r:
         render_contribution_panel(causal_df, h_nums, a_nums, show_causal)
 
     # ── frame data table ──────────────────────────────────────────────────────
