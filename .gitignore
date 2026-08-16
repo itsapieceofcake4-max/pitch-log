@@ -8,3 +8,29 @@ causal_scores_22.csv
 # Generated artifacts (reproducible from xt_pipeline_23.py)
 Export_GSA_22players_30s_gsa_extended.csv
 player_contributions_23.csv
+
+# ── 公開リポジトリに置いてはいけないもの ──────────────────────────────
+# このリポジトリは public。以下は意図せず push されないよう明示的に除外する。
+
+# NDA データ（SoccerNet）由来の成果物。スクリプトから再生成できる。
+docs/Pitch_Log_RealData_*.pptx
+
+# 競合分析（社外秘）。各社への脅威度評価・自社の立ち位置・戦略が含まれるため、
+# 出力だけでなく生成スクリプト本体も公開しない。
+docs/make_competitor_map.py
+docs/competitor_map.pptx
+docs/competitors.xlsx
+
+# 映像・トラッキングの実データ（容量が大きく、権利も伴う）
+*.mp4
+*.mov
+*.avi
+*.mkv
+*_groundtruth.csv
+*.groundtruth.csv
+*_tracks_long.csv
+*_wide_meters.csv
+*_wide_normalized.csv
+*_spec_schema.csv
+physical_report.csv
+calibration.json

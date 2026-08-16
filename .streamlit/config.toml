@@ -1,0 +1,15 @@
+# Pitch Log の基本テーマ（Modern Turf）。細部は rugby/theme.py の CSS で仕上げるが、
+# ここで下地を深緑にしておくことで初回描画時の白いちらつきを防ぐ。
+
+[theme]
+base = "dark"
+primaryColor = "#FBBF24"
+backgroundColor = "#071310"
+secondaryBackgroundColor = "#0C1E18"
+textColor = "#E9F2ED"
+
+[server]
+maxUploadSize = 400
+
+[browser]
+gatherUsageStats = false

@@ -2,3 +2,16 @@ streamlit>=1.35
 plotly>=5.20
 pandas>=2.0
 numpy>=1.26
+
+# v25: ラグビー上空映像トラッキング (app_25.py / rugby パッケージ)
+# cv2 は GUI 機能（imshow 等）を一切使っていないため headless 版で足りる。
+# headless ならサーバ上で libGL などの追加 apt パッケージが不要になる。
+opencv-python-headless>=4.9
+scipy>=1.11
+scikit-learn>=1.4
+shapely>=2.0
+streamlit-image-coordinates>=0.1.9
+streamlit-drawable-canvas>=0.9.3
+
+# 任意: YOLO バックエンドを使う場合のみ
+# ultralytics>=8.1
