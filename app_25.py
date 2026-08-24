@@ -69,12 +69,17 @@ from rugby import theme
 from rugby.theme import COLORS
 from rugby.tutorial import GLOSSARY, OVERVIEW, STEPS, TAB_HELP, TROUBLE
 
-st.set_page_config(
-    page_title="Pitch Log v25 — ラグビー",
-    page_icon="🏉",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
+# マルチページ（app_home.py）から呼ばれる場合、ページ設定は親が済ませている。
+# 二重に呼ぶと例外になるので、単体起動のときだけ設定する。
+try:
+    st.set_page_config(
+        page_title="Pitch Log v25 — ラグビー",
+        page_icon="🏉",
+        layout="wide",
+        initial_sidebar_state="expanded",
+    )
+except st.errors.StreamlitAPIException:
+    pass
 theme.inject()
 
 COLOR_TEAM = {0: COLORS["team_a"], 1: COLORS["team_b"]}
@@ -814,20 +819,36 @@ def _pitch_figure(df: pd.DataFrame, spec, jersey_map: dict,
             ))
 
     def traces(f: int):
+        """1 フレーム分のトレース。**順番と本数は全フレームで固定**にすること。
+
+        Plotly のアニメーションはフレームのデータを先頭から順に既存トレースへ
+        差し替えるだけなので、フレームごとに本数が変わると別の役割のトレースに
+        値が入り、選手マーカーが消えるなどの崩れが起きる。
+        """
         d = df[df["frame"] == f]
         pl = d[d["kind"] == "player"]
         out = []
 
-        if show_voronoi:
-            # 支配領域は背面に。芝のストライプが透けて見える程度の淡さに保つ。
-            for cell in cells_for_frame(d, spec):
-                col = COLOR_TEAM.get(cell.team, COLOR_UNKNOWN)
-                out.append(go.Scatter(
-                    x=cell.polygon[:, 0], y=cell.polygon[:, 1],
-                    fill="toself", fillcolor=_rgba(col, 0.25),
-                    line=dict(color=_rgba(col, 0.55), width=1),
-                    mode="lines", hoverinfo="skip", showlegend=False,
-                ))
+        # 支配領域は背面に。芝のストライプが透けて見える程度の淡さに保つ。
+        # セル数はフレームごとに変わるので、チームごとに 1 本へまとめて
+        # None 区切りで並べる（本数を固定するため）。
+        cells = cells_for_frame(d, spec) if show_voronoi else []
+        for team in (0, 1):
+            xs: list = []
+            ys: list = []
+            for cell in cells:
+                if cell.team != team:
+                    continue
+                xs.extend(cell.polygon[:, 0].tolist())
+                ys.extend(cell.polygon[:, 1].tolist())
+                xs.append(None)
+                ys.append(None)
+            col = COLOR_TEAM.get(team, COLOR_UNKNOWN)
+            out.append(go.Scatter(
+                x=xs, y=ys, fill="toself", fillcolor=_rgba(col, 0.25),
+                line=dict(color=_rgba(col, 0.55), width=1),
+                mode="lines", hoverinfo="skip", showlegend=False,
+            ))
 
         # ドロップシャドウ層。ドットをわずかに右下へずらした黒で、
         # 選手がピッチから浮いて見えるようにする。

@@ -217,15 +217,18 @@ def assign_grid_and_xt_22(df: pd.DataFrame, xt_map: np.ndarray) -> pd.DataFrame:
 # ── Step 2: extract goal window ───────────────────────────────────────────────
 
 def extract_goal_window(
-    df: pd.DataFrame, fps: int, goal_frame_override: int | None = None,
-    window_sec: int = WINDOW_SEC,
+    df: pd.DataFrame, fps: float, goal_frame_override: int | None = None,
+    window_sec: float = WINDOW_SEC,
 ) -> tuple[pd.DataFrame, dict]:
     """
     Extract a time window ending at the goal frame.
     Returns (window_df, metadata_dict).
     metadata_dict contains actual match times (in seconds) for display.
+
+    ``fps`` may be fractional (PFF broadcast tracking runs at 29.97), so the
+    frame count is rounded to an int before it is used as a positional index.
     """
-    window_frames = window_sec * fps
+    window_frames = int(round(window_sec * fps))
     frame_col = "frame" if "frame" in df.columns else df.columns[0]
     df_s      = df.sort_values(frame_col).reset_index(drop=True)
 
@@ -347,6 +350,22 @@ DEF_PROXIMITY_M   = 3.0    # metres: defenders counted if within this radius at 
 LBP_LOOKAHEAD     = 30     # frames: look-ahead window (30 frames = 3s at 10fps)
 
 
+def _f(value) -> float:
+    """Coerce to float, mapping every flavour of missing value to NaN.
+
+    Rows can carry pandas' ``NA`` (from nullable Int64 columns such as GridID)
+    or ``None``.  Calling ``float()`` on those raises ``TypeError``, which used
+    to abort the whole LBP pass whenever a player was untracked in a frame.
+    """
+    try:
+        if value is None or value is pd.NA:
+            return float("nan")
+        out = float(value)
+    except (TypeError, ValueError):
+        return float("nan")
+    return out
+
+
 def _dist_m(x1: float, y1: float, x2: float, y2: float) -> float:
     """Euclidean distance in metres between two normalised-[0,1] pitch coordinates."""
     return float(np.sqrt(((x1 - x2) * 105.0) ** 2 + ((y1 - y2) * 68.0) ** 2))
@@ -390,7 +409,7 @@ def add_zone_and_lbp_columns(df: pd.DataFrame, fps: int) -> pd.DataFrame:
                 py = row.get(f"{prefix}_P{num}_Y", np.nan)
                 if pd.isna(px) or pd.isna(py):
                     continue
-                d = _dist_m(float(px), float(py), bx, by)
+                d = _dist_m(_f(px), _f(py), bx, by)
                 if d < best_d:
                     best_d, best_key = d, (prefix, num)
         return best_key if best_d <= BALL_CONTROL_M else (None, None)
@@ -398,8 +417,8 @@ def add_zone_and_lbp_columns(df: pd.DataFrame, fps: int) -> pd.DataFrame:
     i = 0
     while i < n:
         row = df.iloc[i]
-        bx  = float(row.get("Ball_X", np.nan))
-        by  = float(row.get("Ball_Y", np.nan))
+        bx  = _f(row.get("Ball_X", np.nan))
+        by  = _f(row.get("Ball_Y", np.nan))
         if np.isnan(bx) or np.isnan(by):
             i += 1
             continue
@@ -409,7 +428,7 @@ def add_zone_and_lbp_columns(df: pd.DataFrame, fps: int) -> pd.DataFrame:
             i += 1
             continue
 
-        px_norm = float(row.get(f"{p_team}_P{p_num}_X", np.nan))
+        px_norm = _f(row.get(f"{p_team}_P{p_num}_X", np.nan))
         eff_px  = _effective_x(px_norm, p_team)
         if not (ZONE_SAFE_MAX <= eff_px < ZONE_BUILD_MAX):
             i += 1
@@ -418,8 +437,8 @@ def add_zone_and_lbp_columns(df: pd.DataFrame, fps: int) -> pd.DataFrame:
         found = False
         for k in range(1, min(LBP_LOOKAHEAD + 1, n - i)):
             frow = df.iloc[i + k]
-            fbx  = float(frow.get("Ball_X", np.nan))
-            fby  = float(frow.get("Ball_Y", np.nan))
+            fbx  = _f(frow.get("Ball_X", np.nan))
+            fby  = _f(frow.get("Ball_Y", np.nan))
             if np.isnan(fbx) or np.isnan(fby):
                 continue
             if _dist_m(bx, by, fbx, fby) < PASS_TRAVEL_MIN_M:
@@ -429,7 +448,7 @@ def add_zone_and_lbp_columns(df: pd.DataFrame, fps: int) -> pd.DataFrame:
             if r_team is None or r_team != p_team or r_num == p_num:
                 continue
 
-            rx_norm = float(frow.get(f"{r_team}_P{r_num}_X", np.nan))
+            rx_norm = _f(frow.get(f"{r_team}_P{r_num}_X", np.nan))
             eff_rx  = _effective_x(rx_norm, r_team)
             if eff_rx < ZONE_BUILD_MAX:
                 continue
@@ -441,7 +460,7 @@ def add_zone_and_lbp_columns(df: pd.DataFrame, fps: int) -> pd.DataFrame:
                 dx = frow.get(f"{def_prefix}_P{dn}_X", np.nan)
                 dy = frow.get(f"{def_prefix}_P{dn}_Y", np.nan)
                 if not (pd.isna(dx) or pd.isna(dy)):
-                    if _dist_m(float(dx), float(dy), fbx, fby) <= DEF_PROXIMITY_M:
+                    if _dist_m(_f(dx), _f(dy), fbx, fby) <= DEF_PROXIMITY_M:
                         nearby += 1
 
             pid = f"{p_team}_P{p_num}"

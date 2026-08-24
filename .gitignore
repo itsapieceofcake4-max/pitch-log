@@ -21,6 +21,13 @@ docs/make_competitor_map.py
 docs/competitor_map.pptx
 docs/competitors.xlsx
 
+# PFF FC のデータセット（数GB）。用途は研究・検証だが、他社のデータセットを
+# 公開リポジトリへ置くのは「使う」ではなく「配る」ことになるため除外する。
+# スクリプトは公開してよい。実データは各自が PFF から取得する。
+World Cup2022/
+FIFA World Cup*/
+PFF_*.csv
+
 # 映像・トラッキングの実データ（容量が大きく、権利も伴う）
 *.mp4
 *.mov

@@ -10,6 +10,11 @@ textColor = "#E9F2ED"
 
 [server]
 maxUploadSize = 400
+# 自作モジュール（pff/ や rugby/）を編集したとき、メインスクリプトだけでなく
+# import 先も再読み込みさせる。既定の "auto" だとモジュールが sys.modules に
+# 古いまま残り、追加した関数が ImportError になる。
+folderWatchList = ["pff", "rugby"]
+runOnSave = true
 
 [browser]
 gatherUsageStats = false
